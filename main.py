@@ -25,8 +25,15 @@ def subspace_method_is_lora(subspace_method: str) -> bool:
     return "lora" in subspace_method
 
 
+def subspace_method_is_fullspace(subspace_method: str) -> bool:
+    """True when the EA searches the full problem dimension ``D`` (no reduction)."""
+    return subspace_method == "fullspace"
+
+
 def effective_subspace_param(args: argparse.Namespace) -> int:
-    """Subspace size used by the active method: d for RP/RB; LoRA rank r for LoRA."""
+    """Subspace size used by the active method: d for RP/RB; LoRA rank r for LoRA; D for fullspace."""
+    if subspace_method_is_fullspace(args.subspace_method):
+        return args.dim
     if subspace_method_is_lora(args.subspace_method):
         if args.lora_rank is None:
             raise RuntimeError(
@@ -38,6 +45,8 @@ def effective_subspace_param(args: argparse.Namespace) -> int:
 
 def optimizer_search_dim(args: argparse.Namespace) -> int:
     """Dimensionality of z passed to the evolutionary algorithm (matches ``Subspace.search_dim``)."""
+    if subspace_method_is_fullspace(args.subspace_method):
+        return args.dim
     if subspace_method_is_lora(args.subspace_method):
         if args.lora_rank is None:
             raise RuntimeError(
@@ -96,8 +105,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--subspace_method",
         type=str,
         default="random_projection",
-        choices=["random_projection", "random_blocking", "lora"],
-        help="Subspace reduction method.",
+        choices=[
+            "random_projection",
+            "random_blocking",
+            "lora",
+            "fullspace",
+            "none",
+        ],
+        help=(
+            "Subspace reduction method. Use ``fullspace`` or ``none`` to run the EA "
+            "directly in the full problem space (dimension D)."
+        ),
     )
     parser.add_argument(
         "--subspace_dim",
@@ -318,7 +336,7 @@ def init_wandb(args: argparse.Namespace) -> None:
         args.wandb_name = (f"{args.problem}-dim{args.dim}-{args.subspace_method}")
         if subspace_method_is_lora(args.subspace_method):
             args.wandb_name += f"-lora_rank{args.lora_rank}"
-        else:
+        elif not subspace_method_is_fullspace(args.subspace_method):
             args.wandb_name += f"-subdim{eff_d}"
         args.wandb_name += f"-{args.assignment}-{args.optimizer}-seed{args.seed}"
 
@@ -345,6 +363,8 @@ def init_wandb(args: argparse.Namespace) -> None:
     if subspace_method_is_lora(args.subspace_method):
         # CLI default is unused for LoRA; rank r drives structure and search_dim is 2*M*r.
         config["subspace_dim"] = None
+    elif subspace_method_is_fullspace(args.subspace_method):
+        config["subspace_dim"] = args.dim
     wandb.init(
         entity=args.wandb_entity,
         project=args.wandb_project,
@@ -362,9 +382,21 @@ def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.subspace_method == "none":
+        args.subspace_method = "fullspace"
+
     if subspace_method_is_lora(args.subspace_method) and args.lora_rank is None:
         parser.error(
             "--lora_rank is required when the subspace method uses LoRA"
+        )
+
+    if (
+        not subspace_method_is_fullspace(args.subspace_method)
+        and not subspace_method_is_lora(args.subspace_method)
+        and args.subspace_dim is None
+    ):
+        parser.error(
+            "--subspace_dim is required for random_projection and random_blocking"
         )
 
     # Seed global RNG for reproducibility
@@ -378,14 +410,18 @@ def main(argv: list[str] | None = None) -> None:
     print("=" * 70)
     print(f"  Problem        : {args.problem} (dim={args.dim})")
     eff_sub = effective_subspace_param(args)
-    sub_stat = (
-        f"rank r={eff_sub}"
-        if subspace_method_is_lora(args.subspace_method)
-        else f"d={eff_sub}"
-    )
+    if subspace_method_is_fullspace(args.subspace_method):
+        sub_stat = f"D={eff_sub} (full space)"
+        dev_suffix = ""
+    elif subspace_method_is_lora(args.subspace_method):
+        sub_stat = f"rank r={eff_sub}"
+        dev_suffix = f", device={args.subspace_device}"
+    else:
+        sub_stat = f"d={eff_sub}"
+        dev_suffix = f", device={args.subspace_device}"
     print(
         f"  Subspace       : {args.subspace_method} "
-        f"({sub_stat}, {args.assignment}, device={args.subspace_device})"
+        f"({sub_stat}, {args.assignment}{dev_suffix})"
     )
     print(f"  Optimizer      : {args.optimizer} (pop={args.pop_size})")
     print(f"  Max NFE        : {args.max_nfe}")

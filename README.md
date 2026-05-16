@@ -22,6 +22,9 @@ Evolutionary Algorithms (EAs) struggle with high-dimensional search spaces. This
 | Random Projection | `random_projection` | $z \cdot P$ ($P \in \mathbb{R}^{d \times D}$, row-orthonormal) | $d$ |
 | Random Blocking \& Parameter Sharing | `random_blocking` | $[\Phi(z)]_j = z_{g_j}$ (fixed random groups $g_j \in \{1,\ldots,d\}$) | $d$ |
 | Low-Rank Adaptation (LoRA) | `lora` | $\Phi(z) = \mathrm{vec}_{1:D}(A B)$ with $A \in \mathbb{R}^{M \times r}$, $B \in \mathbb{R}^{r \times M}$ unpacked from $z$, $M=\lceil\sqrt{D}\rceil$ | $2Mr$ where $M=\lceil\sqrt{D}\rceil$, $r$ from `--lora_rank` |
+| Full space (baseline) | `fullspace` or `none` | Identity: $x = z$ (after bounds clipping / additive anchor as for other methods) | $D$ |
+
+The CLI accepts `none` as an alias for `fullspace` (stored internally as `fullspace`).
 
 #### LoRA details
 
@@ -70,14 +73,28 @@ python main.py \
     --benchmark_seed 0
 ```
 
+Full-$D$ baseline (no subspace reduction; EA operates directly in $\mathbb{R}^D$):
+
+```bash
+python main.py \
+    --problem cec2013_lsgo_f1 \
+    --dim 1000 \
+    --subspace_method fullspace \
+    --assignment absolute \
+    --optimizer de \
+    --pop_size 100 \
+    --max_nfe 3000000 \
+    --seed 0
+```
+
 ### All arguments
 
 | Argument | Default | Description |
 |---|---|---|
 | `--problem` | `cec2013_lsgo_f1` | Benchmark problem id (must exist in `problems`; CEC-2013 LSGO uses `cec2013_lsgo_f1`-`cec2013_lsgo_f15`) |
 | `--dim` | `1000` | Objective search space dimensionality $D$ |
-| `--subspace_method` | `random_projection` | Subspace method |
-| `--subspace_dim` | `100` | $d$ for RP/RB; ignored for LoRA (use `--lora_rank`) |
+| `--subspace_method` | `random_projection` | `random_projection`, `random_blocking`, `lora`, `fullspace`, or `none` (same as `fullspace`) |
+| `--subspace_dim` | (unset) | Required for RP/RB ($d$); ignored for LoRA (use `--lora_rank`), fullspace, and `none` |
 | `--lora_rank` | (required for LoRA) | LoRA rank $r$ |
 | `--assignment` | `absolute` | `absolute` or `additive` |
 | `--optimizer` | `de` | `de`, `pso`, `es`, `cmaes` |
@@ -126,6 +143,8 @@ Pass `--wandb` to enable. Every generation logs:
 |   +-- random_projection.py
 |   +-- random_blocking.py
 |   +-- lora.py
+|   +-- fullspace.py      # Identity map; search_dim = D
++-- configs/              # W&B sweep YAMLs (random_projection/, random_blocking/, lora/, fullspace/, ...)
 +-- problems/
 |   +-- lsgo.py           # CEC-2013 LSGO wrapper (opfunu back-end)
 +-- optimizers/
@@ -155,7 +174,7 @@ for method in random_projection random_blocking lora; do
 done
 ```
 
-Note: for `lora`, pass `--lora_rank` instead of relying on `--subspace_dim`.
+Note: for `lora`, pass `--lora_rank` instead of `--subspace_dim`. For a full-$D$ baseline, use `--subspace_method fullspace` (omit `--subspace_dim`) or run `wandb sweep configs/fullspace/de.yaml`.
 
 ---
 

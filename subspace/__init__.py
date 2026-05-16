@@ -3,6 +3,7 @@
 import numpy as np
 
 from .base import Subspace
+from .fullspace import FullSpace
 from .random_projection import RandomProjection
 from .random_blocking import RandomBlocking
 from .lora import LoRA
@@ -11,6 +12,7 @@ REGISTRY: dict[str, type[Subspace]] = {
     "random_projection": RandomProjection,
     "random_blocking": RandomBlocking,
     "lora": LoRA,
+    "fullspace": FullSpace,
 }
 
 
@@ -28,17 +30,17 @@ def build_subspace(
     """Factory function to instantiate a subspace by name.
 
     Args:
-        method: One of 'random_projection', 'random_blocking', 'lora'.
+        method: One of 'random_projection', 'random_blocking', 'lora', 'fullspace'.
         D: Full problem dimensionality.
         d: Subspace dimensionality for ``random_projection`` / ``random_blocking``;
-            LoRA rank *r* when ``method=='lora'``.
+            LoRA rank *r* when ``method=='lora'``; must equal ``D`` for ``fullspace``.
         assignment: 'absolute' or 'additive'.
         seed: RNG seed for subspace random structure and default additive **x0**.
         lb, ub: Full-space bounds; both required together for box clipping after
             ``expand``.
         x0: Optional explicit additive anchor (see Subspace).
         device: PyTorch device string (e.g. ``cuda:0``) for ``random_projection``
-            and ``lora`` matmul; ignored for ``random_blocking``.
+            and ``lora`` matmul; ignored for ``random_blocking`` and ``fullspace``.
 
     Returns:
         Initialised Subspace instance.
@@ -63,6 +65,7 @@ def build_subspace(
 
 __all__ = [
     "Subspace",
+    "FullSpace",
     "RandomProjection",
     "RandomBlocking",
     "LoRA",
