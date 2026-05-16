@@ -10,10 +10,10 @@ from .torch_backend import parse_torch_device
 
 
 class LoRA(Subspace):
-    """Low-Rank Adaptation subspace for black-box optimisation.
+    """Low-Rank Adaptation subspace for black-box optimization.
 
     The D-dimensional full-space vector is treated as (part of) an MxM matrix
-    where M = ceil(sqrt(D)).  The matrix is parameterised by two low-rank factors:
+    where M = ceil(sqrt(D)).  The matrix is parameterized by two low-rank factors:
 
         A  in  R^{M x r}
         B  in  R^{r x M}
@@ -24,7 +24,7 @@ class LoRA(Subspace):
     Because M^2 >= D (by the ceiling), the remaining M^2 - D entries are discarded,
     ensuring every full-space dimension is covered.
 
-    The search (optimisation) vector z  in  R^{2*M*r}  concatenates the
+    The search (optimization) vector z  in  R^{2*M*r}  concatenates the
     flattened A and B:
 
         z = [A.flatten(), B.flatten()]
@@ -32,7 +32,7 @@ class LoRA(Subspace):
     Parameters
     ----------
     d : int
-        Rank *r* of the factorisation.  The effective search-space
+        Rank *r* of the factorization.  The effective search-space
         dimensionality is then 2*M*r where M = ceil(sqrt(D)).
     device : str, optional
         If set, batched matmul in ``expand`` uses PyTorch on that device.

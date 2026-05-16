@@ -1,4 +1,4 @@
-"""Pure-Python CEC-2013 Large-Scale Global Optimisation (LSGO) benchmark
+"""Pure-Python CEC-2013 Large-Scale Global Optimization (LSGO) benchmark
 functions F1-F15.
 
 Data-source policy

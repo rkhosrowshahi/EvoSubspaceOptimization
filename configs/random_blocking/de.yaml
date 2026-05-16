@@ -32,7 +32,7 @@ parameters:
   wandb_project:
     value: evo-subspace-opt
   wandb_group:
-    value: "problem_{problem}-dim{dim}-{subspace_method}-subdim{subspace_dim}-{assignment}-{optimizer}-multiseed"
+    value: "{problem}-dim{dim}-{subspace_method}-subdim{subspace_dim}-{assignment}-{optimizer}-multiseed"
   wandb_name:
     value: __auto__
 

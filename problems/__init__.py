@@ -1,4 +1,4 @@
-"""Benchmark problems for Evolutionary Subspace Optimisation."""
+"""Benchmark problems for Evolutionary Subspace Optimization."""
 
 from .lsgo import LSGOProblem
 

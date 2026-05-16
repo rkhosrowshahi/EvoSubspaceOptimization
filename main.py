@@ -1,4 +1,4 @@
-"""Evolutionary Subspace Optimisation - CLI entry point.
+"""Evolutionary Subspace Optimization - CLI entry point.
 
 See README.md for a full usage example; run ``python main.py --help`` for arguments.
 """
@@ -68,7 +68,7 @@ def _wandb_bool(value: object) -> bool:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Evolutionary Subspace Optimisation on CEC-2013 LSGO benchmarks.",
+        description="Evolutionary Subspace Optimization on CEC-2013 LSGO benchmarks.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
@@ -297,8 +297,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "W&B run name. Use __auto__ or omit for a deterministic name from "
-            "problem, full dimension (--dim), assignment, subspace, optimiser, "
-            "DE F and CR, and optimiser seed."
+            "problem, full dimension (--dim), assignment, subspace, optimizer, "
+            "DE F and CR, and optimizer seed."
         ),
     )
 
@@ -306,7 +306,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 # ---------------------------------------------------------------------------
-# W&B initialisation
+# W&B initialization
 # ---------------------------------------------------------------------------
 
 def init_wandb(args: argparse.Namespace) -> None:
@@ -315,7 +315,7 @@ def init_wandb(args: argparse.Namespace) -> None:
 
     eff_d = effective_subspace_param(args)
     if args.wandb_name in (None, "", "__auto__"):
-        args.wandb_name = (f"problem_{args.problem}-dim{args.dim}-{args.subspace_method}")
+        args.wandb_name = (f"{args.problem}-dim{args.dim}-{args.subspace_method}")
         if subspace_method_is_lora(args.subspace_method):
             args.wandb_name += f"-lora_rank{args.lora_rank}"
         else:
@@ -374,7 +374,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.wandb:
         init_wandb(args)
     print("=" * 70)
-    print("Evolutionary Subspace Optimisation")
+    print("Evolutionary Subspace Optimization")
     print("=" * 70)
     print(f"  Problem        : {args.problem} (dim={args.dim})")
     eff_sub = effective_subspace_param(args)
@@ -389,7 +389,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     print(f"  Optimizer      : {args.optimizer} (pop={args.pop_size})")
     print(f"  Max NFE        : {args.max_nfe}")
-    print(f"  Optimiser seed : {args.seed}")
+    print(f"  Optimizer seed : {args.seed}")
     print(f"  Benchmark seed : {args.benchmark_seed}")
     print("=" * 70)
 
@@ -438,7 +438,7 @@ def main(argv: list[str] | None = None) -> None:
     # -- Termination --
     termination = get_termination("n_eval", args.max_nfe)
 
-    # -- Run optimisation --
+    # -- Run optimization --
     t0 = time.perf_counter()
     result = minimize(
         problem,
@@ -453,7 +453,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # -- Report result --
     print("=" * 70)
-    print(f"Optimisation finished in {elapsed:.2f}s")
+    print(f"Optimization finished in {elapsed:.2f}s")
     print(f"  Best fitness   : {float(result.F.flatten()[0]):.6e}")
     print(f"  Total NFE      : {result.algorithm.evaluator.n_eval}")
     if lsgo.optimum is not None:

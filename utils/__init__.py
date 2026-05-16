@@ -1,4 +1,4 @@
-"""Utilities for Evolutionary Subspace Optimisation."""
+"""Utilities for Evolutionary Subspace Optimization."""
 
 from .callback import LoggingCallback
 from .problem import SubspaceProblem

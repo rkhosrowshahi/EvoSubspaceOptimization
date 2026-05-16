@@ -10,7 +10,7 @@ from subspace.base import Subspace
 
 
 class SubspaceProblem(Problem):
-    """PyMOO-compatible problem that optimises in a reduced subspace.
+    """PyMOO-compatible problem that optimizes in a reduced subspace.
 
     The optimizer sees a ``search_dim``-dimensional problem with bounds
     inherited from the LSGO benchmark.  Each candidate in the search space

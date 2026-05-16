@@ -16,7 +16,7 @@ from .sampling import GaussianSampling
 # ---------------------------------------------------------------------------
 
 def build_sampling(method: str, gaussian_scale: float = 0.5) -> Sampling:
-    """Return a PyMOO Sampling object for the given initialisation method.
+    """Return a PyMOO Sampling object for the given initialization method.
 
     Supported methods: 'uniform', 'gaussian', 'lhs'.
     """
@@ -41,7 +41,7 @@ def build_sampling(method: str, gaussian_scale: float = 0.5) -> Sampling:
 def build_algorithm(args):  # args: argparse.Namespace
     """Construct a PyMOO Algorithm from CLI arguments.
 
-    Supported optimisers: de, pso, es, cmaes.
+    Supported optimizers: de, pso, es, cmaes.
 
     Parameters
     ----------

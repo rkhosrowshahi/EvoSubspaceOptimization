@@ -1,6 +1,6 @@
-# Evolutionary Subspace Optimisation
+# Evolutionary Subspace Optimization
 
-Evolutionary Algorithms (EAs) struggle with high-dimensional search spaces. This project applies **dimensionality-reduction subspaces** to large-scale global optimisation problems: the EA operates in a low-dimensional search space `d` while solutions are projected back to the full `D`-dimensional problem space before fitness evaluation.
+Evolutionary Algorithms (EAs) struggle with high-dimensional search spaces. This project applies **dimensionality-reduction subspaces** to large-scale global optimization problems: the EA operates in a low-dimensional search space $d$ while solutions are projected back to the $D$-dimensional objective search space before fitness evaluation.
 
 ---
 
@@ -8,28 +8,30 @@ Evolutionary Algorithms (EAs) struggle with high-dimensional search spaces. This
 
 | Concept | Description |
 |---|---|
-| **Full space** | D-dimensional problem (CEC-2013 LSGO, D in {1k, 5k, 10k, 100k, 1M}) |
-| **Search space** | d-dimensional latent space the EA sees |
-| **Subspace** | Mapping z in R^d -> x in R^D |
-| **Assignment** | *Absolute*: x = z @ P, or *Additive*: x = x0 + z @ P |
+| **Objective** | Minimize benchmark fitness $f(x)$ with $x \in \mathbb{R}^D$ |
+| **Objective search space** | $D$-dimensional problem (CEC-2013 LSGO, $D \in \{10^3,\, 5{\cdot}10^3,\, 10^4,\, 10^5,\, 10^6\}$) |
+| **Subspace Search** | $d$-dimensional latent space the EA sees |
+| **Subspace to Fullspace** | Mapping $z \in \mathbb{R}^d \xrightarrow{\Phi} x \in \mathbb{R}^D$ |
+| **Absolute Assignment** | *Absolute*: $x = z \cdot P$ |
+| **Additive Assignment** | *Additive*: $x = x_0 + z \cdot P$ |
 
 ### Subspace methods
 
-| Method | `--subspace_method` | Search dim |
-|---|---|---|
-| Gaussian Random Projection | `random_projection` | d |
-| Random Blocking (grouping) | `random_blocking` | d |
-| Low-Rank Adaptation (LoRA) | `lora` | 2*M*r where M=ceil(sqrt(D)), r=`--lora_rank` |
+| Method | `--subspace_method` | $\Phi(z)$ | Search dim |
+|---|---|---|---|
+| Random Projection | `random_projection` | $z \cdot P$ ($P \in \mathbb{R}^{d \times D}$, row-orthonormal) | $d$ |
+| Random Blocking \& Parameter Sharing | `random_blocking` | $[\Phi(z)]_j = z_{g_j}$ (fixed random groups $g_j \in \{1,\ldots,d\}$) | $d$ |
+| Low-Rank Adaptation (LoRA) | `lora` | $\Phi(z) = \mathrm{vec}_{1:D}(A B)$ with $A \in \mathbb{R}^{M \times r}$, $B \in \mathbb{R}^{r \times M}$ unpacked from $z$, $M=\lceil\sqrt{D}\rceil$ | $2Mr$ where $M=\lceil\sqrt{D}\rceil$, $r$ from `--lora_rank` |
 
 #### LoRA details
 
-The D-dimensional vector is reshaped into an M x M matrix (M = ceil(sqrt(D))). It is then parameterised by two low-rank factors A in R^{M x r} and B in R^{r x M}:
+The $D$-dimensional vector is reshaped into an $M \times M$ matrix ($M = \lceil\sqrt{D}\rceil$). It is then parameterized by two low-rank factors $A \in \mathbb{R}^{M \times r}$ and $B \in \mathbb{R}^{r \times M}$:
 
 ```
 x = (A @ B).flatten()[:D]
 ```
 
-The search vector z in R^{2*M*r} concatenates the flattened A and B. The rank `r` is set via `--lora_rank`. The effective optimiser dimension is 2*M*r.
+The search vector $z \in \mathbb{R}^{2Mr}$ concatenates the flattened $A$ and $B$. The rank $r$ is set via `--lora_rank`. The effective optimizer dimension is $2Mr$.
 
 ---
 
@@ -41,7 +43,11 @@ pip install -r requirements.txt
 
 Dependencies: `numpy`, `scipy`, `pymoo`, `opfunu`, `wandb`.
 
-> **Note on D > 1000**: CEC-2013 LSGO was designed for D=1000. For larger D the benchmark is extended by partitioning the vector into non-overlapping 1000-d blocks, evaluating each, and averaging. This is an approximation for ablation studies.
+## License
+
+Original code in this repository is licensed under the **Apache License 2.0**; see [`LICENSE`](LICENSE). The bundled CEC-2013 LSGO code under `problems/cec2013lsgo/` remains under **GNU GPLv3**; see [`problems/cec2013lsgo/LICENSE`](problems/cec2013lsgo/LICENSE).
+
+> **Note on $D > 10^3$**: CEC-2013 LSGO was designed for $D = 10^3$. For larger $D$ the benchmark is extended by partitioning the vector into non-overlapping $10^3$-dimensional blocks, evaluating each, and averaging. This is an approximation for ablation studies.
 
 ---
 
@@ -69,10 +75,10 @@ python main.py \
 | Argument | Default | Description |
 |---|---|---|
 | `--problem` | `cec2013_lsgo_f1` | Benchmark problem id (must exist in `problems`; CEC-2013 LSGO uses `cec2013_lsgo_f1`-`cec2013_lsgo_f15`) |
-| `--dim` | `1000` | Full-space dimensionality D |
+| `--dim` | `1000` | Objective search space dimensionality $D$ |
 | `--subspace_method` | `random_projection` | Subspace method |
-| `--subspace_dim` | `100` | d for RP/RB; ignored for LoRA (use `--lora_rank`) |
-| `--lora_rank` | (required for LoRA) | LoRA rank r |
+| `--subspace_dim` | `100` | $d$ for RP/RB; ignored for LoRA (use `--lora_rank`) |
+| `--lora_rank` | (required for LoRA) | LoRA rank $r$ |
 | `--assignment` | `absolute` | `absolute` or `additive` |
 | `--optimizer` | `de` | `de`, `pso`, `es`, `cmaes` |
 | `--pop_size` | `100` | Population size |
@@ -93,8 +99,8 @@ python main.py \
 | `--wandb` | off | Enable W&B logging |
 | `--wandb_entity` | - | W&B entity |
 | `--wandb_project` | `evo-subspace-opt` | W&B project |
-| `--wandb_group` | - | W&B group; use `{dim}` in the string to inject full-space `--dim` |
-| `--wandb_name` | - | Run name; omit, empty, or `__auto__` for deterministic name from problem / D / assignment / subspace / optimiser / seed |
+| `--wandb_group` | - | W&B group; use `{dim}` in the string to inject objective search space $D$ (`--dim`) |
+| `--wandb_name` | - | Run name; omit, empty, or `__auto__` for deterministic name from problem / $D$ / assignment / subspace / optimizer / seed |
 
 ### W&B logging
 
@@ -150,3 +156,46 @@ done
 ```
 
 Note: for `lora`, pass `--lora_rank` instead of relying on `--subspace_dim`.
+
+---
+
+## Citing this repository
+
+On GitHub, use **Cite this repository** in the right-hand sidebar (generated from [`CITATION.cff`](CITATION.cff)). That file is the [Citation File Format](https://citation-file-format.github.io/) entry for this code.
+
+Sample BibTeX (adjust `year`, `version`, and `note` if you cite a specific release or commit):
+
+```bibtex
+@misc{khosrowshahi_evo_subspace,
+  author       = {Khosrowshahli, Rasa},
+  title        = {{Evolutionary Subspace Optimization}},
+  year         = {2026},
+  publisher    = {GitHub},
+  url          = {https://github.com/rkhosrowshahi/EvoSubspaceOptimization},
+  note         = {GitHub repository}
+}
+```
+
+If you report results with **Block Differential Evolution**, cite the CEC paper as well:
+
+```bibtex
+@inproceedings{khosrowshahi2023block,
+  author    = {Khosrowshahli, Rasa and Rahnamayan, Shahryar},
+  title     = {Block Differential Evolution},
+  booktitle = {2023 IEEE Congress on Evolutionary Computation ({CEC})},
+  pages     = {1--8},
+  year      = {2023},
+  publisher = {IEEE},
+  doi       = {10.1109/CEC53210.2023.10254079}
+}
+```
+
+---
+
+## References
+
+Khosrowshahli, R., & Rahnamayan, S. (2023). Block differential evolution. In *2023 IEEE Congress on Evolutionary Computation (CEC)* (pp. 1-8). IEEE. https://doi.org/10.1109/CEC53210.2023.10254079
+
+Li, X., Tang, K., Omidvar, M. N., Yang, Z., & Qin, K. (2013). *Benchmark functions for the CEC'2013 special session and competition on large scale global optimization* (Technical Report). Evolutionary Computation and Machine Learning Group, RMIT University. http://goanna.cs.rmit.edu.au/~xiaodong/cec13-lsgo/competition/
+
+Molina, D. (2018). *cec2013lsgo* [Computer software]. GitHub. https://github.com/dmolina/cec2013lsgo
