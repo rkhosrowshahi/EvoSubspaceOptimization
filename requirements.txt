@@ -1,0 +1,8 @@
+numpy>=1.24.0
+scipy>=1.10.0
+pymoo>=0.6.0
+opfunu>=1.0.0
+wandb>=0.15.0
+
+# Optional: GPU/CPU torch matmul for --subspace_device (random_projection, lora)
+# pip install torch
