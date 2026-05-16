@@ -96,9 +96,10 @@ def _build_de(args, sampling: Sampling):
         CR=args.de_cr_rate,
         F=args.de_mut_rate,
         sampling=sampling,
-        selection="rand",
-        n_diffs=1,
-        crossover="bin",
+        selection=args.de_selection,
+        n_diffs=args.de_n_diffs,
+        crossover=args.de_crossover,
+        jitter=args.de_jitter,
         control=control_cls,
     )
 

@@ -14,7 +14,7 @@ Data-source policy
 Mathematical formulas are ported verbatim from Benchmarks.cpp / F*.cpp in
 the original C++ implementation by Wenxiang Chen (Colorado State University).
 
-Function catalogue
+Function catalog
 ------------------
 F1   Shifted Elliptic                    fully separable
 F2   Shifted Rastrigin                   fully separable
@@ -77,7 +77,7 @@ _OVERLAP = 5          # overlap between consecutive groups in F13/F14
 # ===========================================================================
 
 def _t_osz(z: np.ndarray) -> np.ndarray:
-    """Irregular oscillation mapping T_osz (vectorised)."""
+    """Irregular oscillation mapping T_osz (vectorized)."""
     z = np.asarray(z, dtype=float).copy()
     nonzero = z != 0.0
     safe_abs = np.where(nonzero, np.abs(z), 1.0)

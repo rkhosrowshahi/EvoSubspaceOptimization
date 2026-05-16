@@ -10,7 +10,7 @@
 #
 # wandb_name: __auto__ -> main.py expands to a unique run name per trial.
 
-name: cec2013-lsgo-fullspace-de
+name: cec2013-lsgo-fullspace-de-evolving
 project: evo-subspace-opt
 # entity: your-team   # Optional; prefer env WANDB_ENTITY or: wandb sweep -e your-team ...
 
@@ -32,7 +32,7 @@ parameters:
   wandb_project:
     value: evo-subspace-opt
   wandb_group:
-    value: "{problem}-dim{dim}-{subspace_method}-{subspace_assignment}-{optimizer}-multiseed"
+    value: "{problem}-dim{dim}-{subspace_method}-{optimizer}-evolving_controls-multiseed"
   wandb_name:
     value: __auto__
 

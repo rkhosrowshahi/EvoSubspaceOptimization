@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import re
 import sys
 import time
 
@@ -192,6 +193,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="DE crossover rate CR in [0, 1].",
     )
     de.add_argument(
+        "--de_selection",
+        type=str,
+        default="rand",
+        choices=["rand", "best", "target-to-best"],
+        help="DE selection method.",
+    )
+    de.add_argument(
+        "--de_n_diffs",
+        type=int,
+        default=1,
+        help="DE number of differences.",
+    )
+    de.add_argument(
+        "--de_jitter",
+        type=bool,
+        default=False,
+        help="DE jitter.",
+    )
+    de.add_argument(
+        "--de_crossover",
+        type=str,
+        default="bin",
+        choices=["bin", "exp", "hypercube", "line"],
+        help="DE crossover method.",
+    )
+    de.add_argument(
         "--de_evolving",
         nargs="?",
         const=True,
@@ -329,7 +356,7 @@ def build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 
 def init_wandb(args: argparse.Namespace) -> None:
-    """Initialise a W&B run with the full config."""
+    """Initialize a W&B run with the full config."""
     import wandb  # type: ignore
 
     eff_d = effective_subspace_param(args)
@@ -344,19 +371,21 @@ def init_wandb(args: argparse.Namespace) -> None:
         )
 
     if args.wandb_group:
-        s = (
-            args.wandb_group.replace("{dim}", str(args.dim))
-            .replace("{problem}", str(args.problem))
-            .replace("{subspace_method}", str(args.subspace_method))
-            .replace("{subspace_dim}", str(eff_d))
-            .replace("{subspace_assignment}", str(args.subspace_assignment))
-            .replace("{optimizer}", str(args.optimizer))
-            .replace("{seed}", str(args.seed))
-        )
-        if subspace_method_is_lora(args.subspace_method):
-            s = s.replace("{lora_rank}", str(args.lora_rank))
-        else:
-            s = s.replace("{lora_rank}", "")
+        placeholder_pattern = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
+        placeholder_values = vars(args).copy()
+        placeholder_values["subspace_dim"] = eff_d
+        if not subspace_method_is_lora(args.subspace_method):
+            placeholder_values["lora_rank"] = ""
+
+        def _replace_placeholder(match: re.Match[str]) -> str:
+            key = match.group(1)
+            if key not in placeholder_values:
+                return match.group(0)
+            value = placeholder_values[key]
+            return "" if value is None else str(value)
+
+        s = placeholder_pattern.sub(_replace_placeholder, args.wandb_group)
+        if not subspace_method_is_lora(args.subspace_method):
             while "--" in s:
                 s = s.replace("--", "-")
         args.wandb_group = s

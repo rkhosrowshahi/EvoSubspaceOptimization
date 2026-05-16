@@ -43,7 +43,7 @@ def build_subspace(
             and ``lora`` matmul; ignored for ``random_blocking`` and ``fullspace``.
 
     Returns:
-        Initialised Subspace instance.
+        Initialized Subspace instance.
     """
     if method not in REGISTRY:
         raise ValueError(
