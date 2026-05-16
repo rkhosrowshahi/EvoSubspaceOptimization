@@ -1,7 +1,7 @@
 # Random blocking (grouping) + DE - CEC f1-f15; **absolute** / **additive** assignment;
 # swept seeds, subspace dimension d (parallel to LoRA rank sweep in configs/lora/de.yaml).
 #
-# --seed, --subspace_dim, and --assignment are swept; benchmark uses default benchmark_seed=0.
+# --seed, --subspace_dim, and --subspace_assignment are swept; benchmark uses default benchmark_seed=0.
 #
 # From repo root:
 #   wandb sweep configs/random_blocking/de.yaml
@@ -32,34 +32,11 @@ parameters:
   wandb_project:
     value: evo-subspace-opt
   wandb_group:
-    value: "{problem}-dim{dim}-{subspace_method}-subdim{subspace_dim}-{assignment}-{optimizer}-multiseed"
+    value: "{problem}-dim{dim}-{subspace_method}-subdim{subspace_dim}-{subspace_assignment}-{optimizer}-multiseed"
   wandb_name:
     value: __auto__
 
   # --- swept ---
-  subspace_dim:
-    values:
-      - 8
-      - 4
-      - 2
-      - 1
-  problem:
-    values:
-      - cec2013_lsgo_f1
-      - cec2013_lsgo_f2
-      - cec2013_lsgo_f3
-      - cec2013_lsgo_f4
-      - cec2013_lsgo_f5
-      - cec2013_lsgo_f6
-      - cec2013_lsgo_f7
-      - cec2013_lsgo_f8
-      - cec2013_lsgo_f9
-      - cec2013_lsgo_f10
-      - cec2013_lsgo_f11
-      - cec2013_lsgo_f12
-      - cec2013_lsgo_f13
-      - cec2013_lsgo_f14
-      - cec2013_lsgo_f15
   seed:
     values:
       - 0
@@ -77,10 +54,31 @@ parameters:
       # - 12
       # - 13
       # - 14
-  assignment:
+  problem:
     values:
-      - absolute
+      - cec2013_lsgo_f1
+      - cec2013_lsgo_f2
+      - cec2013_lsgo_f3
+      - cec2013_lsgo_f4
+      - cec2013_lsgo_f5
+      # - cec2013_lsgo_f6
+      # - cec2013_lsgo_f7
+      # - cec2013_lsgo_f8
+      # - cec2013_lsgo_f9
+      # - cec2013_lsgo_f10
+      # - cec2013_lsgo_f11
+      # - cec2013_lsgo_f12
+      # - cec2013_lsgo_f13
+      # - cec2013_lsgo_f14
+      # - cec2013_lsgo_f15
+  subspace_dim:
+    values:
+     - 50
+     - 10
+  subspace_assignment:
+    values:
       - additive
+      - absolute
   subspace_method:
     value: random_blocking
   dim:

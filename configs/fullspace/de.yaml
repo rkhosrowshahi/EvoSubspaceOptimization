@@ -1,7 +1,7 @@
 # Full-space (D-dimensional) DE baseline on CEC f1–f15; **absolute** / **additive** assignment.
 # No dimensionality reduction — `search_dim == --dim`.
 #
-# `--seed` and `--assignment` are swept; benchmark uses default `benchmark_seed=0`.
+# `--seed` and `--subspace_assignment` are swept; benchmark uses default `benchmark_seed=0`.
 # Do **not** pass `--subspace_dim` (only used for random_projection / random_blocking).
 #
 # From repo root:
@@ -32,7 +32,7 @@ parameters:
   wandb_project:
     value: evo-subspace-opt
   wandb_group:
-    value: "{problem}-dim{dim}-{subspace_method}-{assignment}-{optimizer}-multiseed"
+    value: "{problem}-dim{dim}-{subspace_method}-{subspace_assignment}-{optimizer}-multiseed"
   wandb_name:
     value: __auto__
 
@@ -71,11 +71,8 @@ parameters:
       # - 12
       # - 13
       # - 14
-  assignment:
-    values:
-      - absolute
-      - additive
-
+  subspace_assignment:
+    value: absolute
   subspace_method:
     value: fullspace
   dim:

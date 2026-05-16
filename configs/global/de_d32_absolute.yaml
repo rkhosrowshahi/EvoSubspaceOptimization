@@ -35,7 +35,7 @@ parameters:
   wandb_project:
     value: evo-subspace-opt
   wandb_group:
-    value: "problem_{problem}-dim{dim}-{subspace_method}-subdim{subspace_dim}-{assignment}-{optimizer}-multiseed"
+    value: "problem_{problem}-dim{dim}-{subspace_method}-subdim{subspace_dim}-{subspace_assignment}-{optimizer}-multiseed"
   wandb_name:
     value: __auto__
 
@@ -83,7 +83,7 @@ parameters:
     - cec2013_lsgo_f13
     - cec2013_lsgo_f14
     - cec2013_lsgo_f15
-  assignment:
+  subspace_assignment:
     value: absolute
   dim:
     value: 1000

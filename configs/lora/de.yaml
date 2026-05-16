@@ -35,7 +35,7 @@ parameters:
   wandb_project:
     value: evo-subspace-opt
   wandb_group:
-    value: "{problem}-dim{dim}-{subspace_method}-lora_rank{lora_rank}-{assignment}-{optimizer}-multiseed"
+    value: "{problem}-dim{dim}-{subspace_method}-lora_rank{lora_rank}-{subspace_assignment}-{optimizer}-multiseed"
   wandb_name:
     value: __auto__
 
@@ -81,7 +81,7 @@ parameters:
       # - 12
       # - 13
       # - 14
-  assignment:
+  subspace_assignment:
     values: 
     - absolute
     - additive

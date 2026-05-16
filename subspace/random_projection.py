@@ -30,7 +30,7 @@ class RandomProjection(Subspace):
         self,
         D: int,
         d: int,
-        assignment: str = "absolute",
+        subspace_assignment: str = "absolute",
         seed: int | None = None,
         lb: np.ndarray | None = None,
         ub: np.ndarray | None = None,
@@ -43,7 +43,7 @@ class RandomProjection(Subspace):
         super().__init__(
             D=D,
             d=d,
-            assignment=assignment,
+            subspace_assignment=subspace_assignment,
             seed=seed,
             lb=lb,
             ub=ub,

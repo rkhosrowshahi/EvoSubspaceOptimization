@@ -23,7 +23,7 @@ class Subspace(ABC):
         self,
         D: int,
         d: int,
-        assignment: str = "absolute",
+        subspace_assignment: str = "absolute",
         seed: int | None = None,
         lb: np.ndarray | None = None,
         ub: np.ndarray | None = None,
@@ -34,7 +34,7 @@ class Subspace(ABC):
             D: Full problem dimensionality.
             d: Subspace dimensionality (meaning is subclass-specific;
                for LoRA this is the rank r).
-            assignment: 'absolute' or 'additive'.
+            subspace_assignment: 'absolute' or 'additive'.
             seed: RNG seed for subspace structure (projection, blocking, ...) and,
                 in additive mode without an explicit ``x0``, for sampling **x0**
                 ``uniform(lb, ub)`` (drawn before ``init()`` so the stream is
@@ -43,14 +43,16 @@ class Subspace(ABC):
                 are given, expanded vectors are **clipped** into ``[lb, ub]``.
             x0: Explicit additive anchor (shape ``(D,)``). Must be finite; if
                 ``lb``/``ub`` are set, every coordinate must lie in the box.
-                If ``None`` and ``assignment`` is additive, **x0** is sampled
+                If ``None`` and ``subspace_assignment`` is additive, **x0** is sampled
                 using ``seed`` as above (requires ``lb`` and ``ub``).
         """
-        if assignment not in (self.ABSOLUTE, self.ADDITIVE):
-            raise ValueError(f"assignment must be 'absolute' or 'additive', got {assignment!r}")
+        if subspace_assignment not in (self.ABSOLUTE, self.ADDITIVE):
+            raise ValueError(
+                f"subspace_assignment must be 'absolute' or 'additive', got {subspace_assignment!r}"
+            )
         self.D = D
         self.d = d
-        self.assignment = assignment
+        self.subspace_assignment = subspace_assignment
         self._seed = seed
         self.rng = np.random.default_rng(seed)
         self._x0: np.ndarray | None = None
@@ -77,7 +79,7 @@ class Subspace(ABC):
         if x0 is not None:
             self._x0 = self._validated_x0_copy(x0)
             return
-        if self.assignment != self.ADDITIVE:
+        if self.subspace_assignment != self.ADDITIVE:
             return
         if self._lb is None or self._ub is None:
             raise ValueError("additive mode without explicit x0 requires lb and ub")
@@ -175,7 +177,7 @@ class Subspace(ABC):
         Returns:
             Final solution(s). Shape (..., D).
         """
-        if self.assignment == self.ADDITIVE:
+        if self.subspace_assignment == self.ADDITIVE:
             base = (
                 x0
                 if x0 is not None
@@ -189,5 +191,5 @@ class Subspace(ABC):
     def __repr__(self) -> str:
         return (
             f"{type(self).__name__}(D={self.D}, d={self.d}, "
-            f"search_dim={self.search_dim}, assignment={self.assignment!r})"
+            f"search_dim={self.search_dim}, subspace_assignment={self.subspace_assignment!r})"
         )

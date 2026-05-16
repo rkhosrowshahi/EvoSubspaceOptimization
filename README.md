@@ -62,7 +62,7 @@ python main.py \
     --dim 1000 \
     --subspace_method random_projection \
     --subspace_dim 100 \
-    --assignment absolute \
+    --subspace_assignment absolute \
     --optimizer de \
     --pop_size 100 \
     --init_pop uniform \
@@ -80,7 +80,7 @@ python main.py \
     --problem cec2013_lsgo_f1 \
     --dim 1000 \
     --subspace_method fullspace \
-    --assignment absolute \
+    --subspace_assignment absolute \
     --optimizer de \
     --pop_size 100 \
     --max_nfe 3000000 \
@@ -96,7 +96,7 @@ python main.py \
 | `--subspace_method` | `random_projection` | `random_projection`, `random_blocking`, `lora`, `fullspace`, or `none` (same as `fullspace`) |
 | `--subspace_dim` | (unset) | Required for RP/RB ($d$); ignored for LoRA (use `--lora_rank`), fullspace, and `none` |
 | `--lora_rank` | (required for LoRA) | LoRA rank $r$ |
-| `--assignment` | `absolute` | `absolute` or `additive` |
+| `--subspace_assignment` | `absolute` | `absolute` or `additive` |
 | `--optimizer` | `de` | `de`, `pso`, `es`, `cmaes` |
 | `--pop_size` | `100` | Population size |
 | `--init_pop` | `uniform` | `uniform`, `gaussian`, `lhs` |
@@ -117,7 +117,7 @@ python main.py \
 | `--wandb_entity` | - | W&B entity |
 | `--wandb_project` | `evo-subspace-opt` | W&B project |
 | `--wandb_group` | - | W&B group; use `{dim}` in the string to inject objective search space $D$ (`--dim`) |
-| `--wandb_name` | - | Run name; omit, empty, or `__auto__` for deterministic name from problem / $D$ / assignment / subspace / optimizer / seed |
+| `--wandb_name` | - | Run name; omit, empty, or `__auto__` for deterministic name from problem / $D$ / subspace_assignment / subspace / optimizer / seed |
 
 ### W&B logging
 

@@ -10,7 +10,7 @@ from .base import Subspace
 class FullSpace(Subspace):
     """Search space equals full dimension ``D``; ``expand`` is the identity (plus bounds clipping).
 
-    Use ``d=D`` when constructing via :func:`build_subspace`; ``assignment`` behaves like other
+    Use ``d=D`` when constructing via :func:`build_subspace`; ``subspace_assignment`` behaves like other
     subspaces (absolute: optimize ``x`` directly; additive: optimize perturbations around ``x0``).
     """
 

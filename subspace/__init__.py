@@ -20,7 +20,7 @@ def build_subspace(
     method: str,
     D: int,
     d: int,
-    assignment: str = "absolute",
+    subspace_assignment: str = "absolute",
     seed: int | None = None,
     lb: np.ndarray | None = None,
     ub: np.ndarray | None = None,
@@ -34,7 +34,7 @@ def build_subspace(
         D: Full problem dimensionality.
         d: Subspace dimensionality for ``random_projection`` / ``random_blocking``;
             LoRA rank *r* when ``method=='lora'``; must equal ``D`` for ``fullspace``.
-        assignment: 'absolute' or 'additive'.
+        subspace_assignment: 'absolute' or 'additive'.
         seed: RNG seed for subspace random structure and default additive **x0**.
         lb, ub: Full-space bounds; both required together for box clipping after
             ``expand``.
@@ -52,7 +52,7 @@ def build_subspace(
     kw = dict(
         D=D,
         d=d,
-        assignment=assignment,
+        subspace_assignment=subspace_assignment,
         seed=seed,
         lb=lb,
         ub=ub,

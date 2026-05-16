@@ -134,7 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--assignment",
+        "--subspace_assignment",
         type=str,
         default="absolute",
         choices=["absolute", "additive"],
@@ -304,7 +304,8 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help=(
-            "W&B group. Placeholders: {dim}, {problem}, {subspace_method}, {assignment}, "
+            "W&B group. Placeholders: {dim}, {problem}, {subspace_method}, "
+            "{subspace_assignment}, "
             "{optimizer}, {subspace_dim} (RP/RB d or LoRA rank r), {lora_rank} (LoRA only; "
             "otherwise omitted)."
         ),
@@ -315,7 +316,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "W&B run name. Use __auto__ or omit for a deterministic name from "
-            "problem, full dimension (--dim), assignment, subspace, optimizer, "
+            "problem, full dimension (--dim), subspace_assignment, subspace, optimizer, "
             "DE F and CR, and optimizer seed."
         ),
     )
@@ -338,7 +339,9 @@ def init_wandb(args: argparse.Namespace) -> None:
             args.wandb_name += f"-lora_rank{args.lora_rank}"
         elif not subspace_method_is_fullspace(args.subspace_method):
             args.wandb_name += f"-subdim{eff_d}"
-        args.wandb_name += f"-{args.assignment}-{args.optimizer}-seed{args.seed}"
+        args.wandb_name += (
+            f"-{args.subspace_assignment}-{args.optimizer}-seed{args.seed}"
+        )
 
     if args.wandb_group:
         s = (
@@ -346,7 +349,7 @@ def init_wandb(args: argparse.Namespace) -> None:
             .replace("{problem}", str(args.problem))
             .replace("{subspace_method}", str(args.subspace_method))
             .replace("{subspace_dim}", str(eff_d))
-            .replace("{assignment}", str(args.assignment))
+            .replace("{subspace_assignment}", str(args.subspace_assignment))
             .replace("{optimizer}", str(args.optimizer))
             .replace("{seed}", str(args.seed))
         )
@@ -421,7 +424,7 @@ def main(argv: list[str] | None = None) -> None:
         dev_suffix = f", device={args.subspace_device}"
     print(
         f"  Subspace       : {args.subspace_method} "
-        f"({sub_stat}, {args.assignment}{dev_suffix})"
+        f"({sub_stat}, {args.subspace_assignment}{dev_suffix})"
     )
     print(f"  Optimizer      : {args.optimizer} (pop={args.pop_size})")
     print(f"  Max NFE        : {args.max_nfe}")
@@ -441,14 +444,14 @@ def main(argv: list[str] | None = None) -> None:
         method=args.subspace_method,
         D=args.dim,
         d=effective_subspace_param(args),
-        assignment=args.assignment,
+        subspace_assignment=args.subspace_assignment,
         seed=args.seed,
         lb=lsgo.lb,
         ub=lsgo.ub,
         device=args.subspace_device,
     )
     print(f"  Search dim     : {subspace.search_dim}")
-    if args.assignment == "additive":
+    if args.subspace_assignment == "additive":
         xa = subspace.x0
         assert xa is not None
         print(
