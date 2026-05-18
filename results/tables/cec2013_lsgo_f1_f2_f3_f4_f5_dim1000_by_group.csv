@@ -1,6 +1,6 @@
-problem,fullspace-absolute-de-multiseed,lora-lora_rank8-absolute-de-multiseed,random_blocking-subdim10-absolute-de-multiseed,random_blocking-subdim10-additive-de-multiseed,random_blocking-subdim50-absolute-de-multiseed,random_blocking-subdim50-additive-de-multiseed,random_projection-subdim10-absolute-de-multiseed,random_projection-subdim10-additive-de-multiseed,random_projection-subdim50-absolute-de-multiseed,random_projection-subdim50-additive-de-multiseed
-cec2013_lsgo_f1,2.74E+04,4.02E+11,1.94E+11,3.87E+11,1.54E+11,2.45E+11,1.97E+11,4.13E+11,1.57E+11,3.38E+11
-cec2013_lsgo_f2,2.03E+02,1.17E+05,4.18E+04,8.41E+04,3.76E+04,7.37E+04,4.63E+04,1.39E+05,4.21E+04,1.21E+05
-cec2013_lsgo_f3,3.28E-02,2.14E+01,2.09E+01,2.14E+01,2.06E+01,2.11E+01,2.10E+01,2.15E+01,2.10E+01,2.15E+01
-cec2013_lsgo_f4,6.51E+10,,,,,,,,,
-cec2013_lsgo_f5,9.62E+06,,,,,,,,,
+problem,fullspace-absolute-de-multiseed,fullspace-absolute-de-rand1bin-F0.5-CR0.9-multiseed,lora-lora_rank8-absolute-de-multiseed,random_blocking-subdim10-absolute-de-multiseed,random_blocking-subdim10-additive-de-multiseed,random_blocking-subdim50-absolute-de-multiseed,random_blocking-subdim50-additive-de-multiseed,random_projection-subdim10-absolute-de-multiseed,random_projection-subdim10-additive-de-multiseed,random_projection-subdim50-absolute-de-multiseed,random_projection-subdim50-additive-de-multiseed
+cec2013_lsgo_f1,2.74E+04,2.99E+03,4.02E+11,1.94E+11,3.87E+11,1.54E+11,2.45E+11,1.97E+11,4.13E+11,1.57E+11,3.38E+11
+cec2013_lsgo_f2,2.03E+02,4.39E+03,1.17E+05,4.18E+04,8.41E+04,3.76E+04,7.37E+04,4.63E+04,1.39E+05,4.21E+04,1.21E+05
+cec2013_lsgo_f3,3.28E-02,2.96E+00,2.14E+01,2.10E+01,2.14E+01,2.06E+01,2.11E+01,2.10E+01,2.14E+01,2.09E+01,2.14E+01
+cec2013_lsgo_f4,6.51E+10,1.49E+10,,5.45E+12,1.53E+13,7.83E+11,1.15E+12,5.94E+13,1.72E+14,2.53E+12,3.87E+13
+cec2013_lsgo_f5,9.62E+06,1.01E+06,,3.30E+07,7.20E+07,1.89E+07,3.19E+07,4.08E+07,1.21E+08,2.68E+07,7.41E+07
