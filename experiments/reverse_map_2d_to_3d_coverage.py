@@ -1,22 +1,25 @@
-"""Coverage experiment: map 2D uniform samples into 3D.
+r"""Coverage experiment: map low-dimensional uniforms into full 3D space.
 
-This script generates N uniform random 2D points and maps them to 3D via:
-1) RandomProjection.expand(z) with d=2, D=3
-2) A LoRA-style tied-parameter map based on the project LoRA implementation
-3) RandomBlocking.expand(z) with d=2, D=3
+Compares subspace expands from shared 2D draws:
+1) RandomProjection.expand(z)
+2) LoRA latent (tied u,v duplication) then expand — Monte Carlo stats use this 2D to 3D path
+3) RandomBlocking.expand(z)
 
-It reports whether samples fill 3D volume or stay on a lower-dimensional region.
+Figures: random projection / blocking shown in 3D with default and right-side cameras.
+The LoRA column shows two adjacent 2D scatter plots for packed latent coefficients:
+vec(A) and vec(B) (each lives in R^{M*r} here M*r=2, full latent dimension 4).
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import argparse
 from dataclasses import dataclass, field
 from pathlib import Path
 import sys
 
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 import numpy as np
 
 # Allow running as: python experiments/reverse_map_2d_to_3d_coverage.py
@@ -123,7 +126,7 @@ def build_random_projection_mapper(seed: int, device: str):
     return mapper
 
 
-def build_lora_tied_mapper(seed: int, device: str | None):
+def build_lora_tied_mapper(seed: int, device: str | None) -> tuple[Callable[[np.ndarray], np.ndarray], LoRA]:
     lora = LoRA(
         D=3,
         d=1,  # rank r=1 -> internal search_dim = 2 * M * r = 4 for D=3
@@ -144,7 +147,7 @@ def build_lora_tied_mapper(seed: int, device: str | None):
         z_lora = np.column_stack((u, v, u, v))
         return lora.expand(z_lora)
 
-    return mapper
+    return mapper, lora
 
 
 def build_random_blocking_mapper(seed: int):
@@ -241,6 +244,67 @@ def _format_subplot_caption(result: dict[str, object]) -> str:
     )
 
 
+def _draw_lora_ab_latent_planes(
+    fig,
+    gs_cell,
+    z4_latent: np.ndarray,
+    *,
+    split: int,
+    M: int,
+    rank: int,
+    title_suffix: str,
+    lora_result: dict[str, object],
+    show_caption: bool,
+) -> None:
+    """Scatter packed latent blocks z = [vec(A); vec(B)] (length 4 here) into two ℝ² planes.
+
+    Unpack matches subspace LoRA.expand: vec(A) is the first split = M·r coefficients.
+    """
+    A_packed = z4_latent[:, :split]
+    B_packed = z4_latent[:, split:]
+    gs_inner = GridSpecFromSubplotSpec(1, 2, subplot_spec=gs_cell, wspace=0.38)
+
+    ax_a = fig.add_subplot(gs_inner[0, 0])
+    ax_a.scatter(A_packed[:, 0], A_packed[:, 1], s=1, alpha=0.28)
+    ax_a.set_aspect("equal", adjustable="box")
+    ax_a.spines["top"].set_visible(False)
+    ax_a.spines["right"].set_visible(False)
+    ax_a.set_xlabel(r"$[\mathrm{vec}(A)]_1$")
+    ax_a.set_ylabel(r"$[\mathrm{vec}(A)]_2$")
+    prefix = title_suffix + " " if title_suffix.strip() else ""
+    ax_a.set_title(
+        rf"{prefix}LoRA: $A\in\mathbb{{R}}^{{{M}\times{rank}}}$, "
+        rf"packed as $\mathrm{{vec}}(A)\in\mathbb{{R}}^{{{M * rank}}}$"
+    )
+
+    ax_b = fig.add_subplot(gs_inner[0, 1])
+    ax_b.scatter(B_packed[:, 0], B_packed[:, 1], s=1, alpha=0.28)
+    ax_b.set_aspect("equal", adjustable="box")
+    ax_b.spines["top"].set_visible(False)
+    ax_b.spines["right"].set_visible(False)
+    ax_b.set_xlabel(r"$[\mathrm{vec}(B)]_1$")
+    ax_b.set_ylabel(r"$[\mathrm{vec}(B)]_2$")
+    ax_b.set_title(
+        rf"{prefix}LoRA: $B\in\mathbb{{R}}^{{{rank}\times{M}}}$, "
+        rf"packed as $\mathrm{{vec}}(B)\in\mathbb{{R}}^{{{M * rank}}}$"
+    )
+
+    if show_caption:
+        pos_a = ax_a.get_position()
+        pos_b = ax_b.get_position()
+        xc_fig = (pos_a.x0 + pos_b.x1) / 2
+        yt_fig = min(pos_a.y0, pos_b.y0) - 0.02
+        fig.text(
+            xc_fig,
+            yt_fig,
+            _format_subplot_caption(lora_result),
+            ha="center",
+            va="top",
+            fontsize=10,
+            transform=fig.transFigure,
+        )
+
+
 def _draw_3d_scatter_panel(
     ax: plt.Axes,
     xyz: np.ndarray,
@@ -274,7 +338,8 @@ def save_joint_figure(
     z2_plot: np.ndarray,
     x_rp_plot: np.ndarray,
     x_rb_plot: np.ndarray,
-    x_lora_plot: np.ndarray,
+    z4_lora_plot: np.ndarray,
+    lora: LoRA,
     rp_result: dict[str, object],
     rb_result: dict[str, object],
     lora_result: dict[str, object],
@@ -284,7 +349,7 @@ def save_joint_figure(
     base.parent.mkdir(parents=True, exist_ok=True)
     pdf_path = base.with_suffix(".pdf")
     png_path = base.with_suffix(".png")
-    fig = plt.figure(figsize=(21, 14), layout="constrained")
+    fig = plt.figure(figsize=(22, 16))
     gs = GridSpec(2, 4, figure=fig, height_ratios=[1.0, 1.0])
 
     ax2d = fig.add_subplot(gs[0, 0])
@@ -318,25 +383,26 @@ def save_joint_figure(
         show_caption=True,
     )
 
-    ax_lora = fig.add_subplot(gs[0, 3], projection="3d")
-    _draw_3d_scatter_panel(
-        ax_lora,
-        x_lora_plot,
-        r"LoRA tied map: $\mathbb{R}^2 \to \mathbb{R}^3$",
-        lora_result,
-        elev=None,
-        azim=None,
+    _draw_lora_ab_latent_planes(
+        fig,
+        gs[0, 3],
+        z4_lora_plot,
+        split=lora._split,
+        M=lora.M,
+        rank=lora.r,
+        title_suffix="",
+        lora_result=lora_result,
         show_caption=True,
     )
 
-    # Right-side camera on the three 3D panels (lower row); same data as above.
+    # Right-side camera on RP/RB 3D panels (lower row). LoRA: same latent A/B planes repeated.
     right_elev, right_azim = 12.0, 90.0
     ax_key = fig.add_subplot(gs[1, 0])
     ax_key.axis("off")
     ax_key.text(
         0.5,
-        0.55,
-        "3D — right-side view",
+        0.58,
+        "Lower grid",
         ha="center",
         va="center",
         fontsize=13,
@@ -344,11 +410,21 @@ def save_joint_figure(
     )
     ax_key.text(
         0.5,
-        0.35,
-        rf"(elev={right_elev:.0f}°, azim={right_azim:.0f}°)",
+        0.38,
+        f"cols 2-3: RP & RB,\nright-side camera\n(elev={right_elev:.0f}\u00b0, azim={right_azim:.0f}\u00b0)",
         ha="center",
         va="center",
         fontsize=10,
+        transform=ax_key.transAxes,
+        color="0.35",
+    )
+    ax_key.text(
+        0.5,
+        0.06,
+        "col 4: LoRA $\\mathbb{R}^4$ latent\n(two $\\mathbb{R}^2$ coefficient planes)",
+        ha="center",
+        va="center",
+        fontsize=9,
         transform=ax_key.transAxes,
         color="0.35",
     )
@@ -375,16 +451,19 @@ def save_joint_figure(
         show_caption=False,
     )
 
-    ax_lora_r = fig.add_subplot(gs[1, 3], projection="3d")
-    _draw_3d_scatter_panel(
-        ax_lora_r,
-        x_lora_plot,
-        r"LoRA tied map (right view): $\mathbb{R}^2 \to \mathbb{R}^3$",
-        lora_result,
-        elev=right_elev,
-        azim=right_azim,
+    _draw_lora_ab_latent_planes(
+        fig,
+        gs[1, 3],
+        z4_lora_plot,
+        split=lora._split,
+        M=lora.M,
+        rank=lora.r,
+        title_suffix=r"(same $\mathbb{R}^4$ draws) ",
+        lora_result=lora_result,
         show_caption=False,
     )
+
+    fig.subplots_adjust(left=0.05, right=0.97, bottom=0.07, top=0.91, hspace=0.32, wspace=0.25)
 
     fig.savefig(pdf_path, dpi=220)
     fig.savefig(png_path, dpi=220)
@@ -447,7 +526,7 @@ def main() -> None:
 
     rp_mapper = build_random_projection_mapper(seed=args.seed, device=device)
     rb_mapper = build_random_blocking_mapper(seed=args.seed)
-    lora_mapper = build_lora_tied_mapper(seed=args.seed, device=lora_device)
+    lora_mapper, lora = build_lora_tied_mapper(seed=args.seed, device=lora_device)
 
     rp_result = analyze_method(
         name="RandomProjection (d=2 -> D=3)",
@@ -487,15 +566,16 @@ def main() -> None:
 
     rng_plot = np.random.default_rng(args.seed + 1)
     z2_plot = rng_plot.uniform(args.low, args.high, size=(args.plot_samples, 2))
+    z4_lora_plot = rng_plot.uniform(args.low, args.high, size=(args.plot_samples, lora.search_dim))
     x_rp_plot = rp_mapper(z2_plot)
     x_rb_plot = rb_mapper(z2_plot)
-    x_lora_plot = lora_mapper(z2_plot)
     plot_path = REPO_ROOT / args.plot_path
     save_joint_figure(
         z2_plot=z2_plot,
         x_rp_plot=x_rp_plot,
         x_rb_plot=x_rb_plot,
-        x_lora_plot=x_lora_plot,
+        z4_lora_plot=z4_lora_plot,
+        lora=lora,
         rp_result=rp_result,
         rb_result=rb_result,
         lora_result=lora_result,

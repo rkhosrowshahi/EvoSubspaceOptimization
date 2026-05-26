@@ -56,38 +56,91 @@ Original code in this repository is licensed under the **Apache License 2.0**; s
 
 ## Usage
 
+### Single-phase (`scripts/main.py`)
+
+Classic approach: one subspace (or full space) for the entire NFE budget.
+
 ```bash
-python main.py \
-    --problem cec2013_lsgo_f1 \
-    --dim 1000 \
-    --subspace_method random_projection \
-    --subspace_dim 100 \
-    --subspace_assignment absolute \
-    --optimizer de \
-    --pop_size 100 \
-    --init_pop uniform \
-    --de_mut_rate 0.8 \
-    --de_cr_rate 0.9 \
-    --max_nfe 3000000 \
-    --seed 0 \
-    --benchmark_seed 0
+python scripts/main.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method random_projection --subspace_dim 100 --subspace_assignment absolute --optimizer de --pop_size 100 --init_pop uniform --de_mut_rate 0.8 --de_cr_rate 0.9 --max_nfe 3000000 --seed 0 --benchmark_seed 0
 ```
 
 Full-$D$ baseline (no subspace reduction; EA operates directly in $\mathbb{R}^D$):
 
 ```bash
-python main.py \
-    --problem cec2013_lsgo_f1 \
-    --dim 1000 \
-    --subspace_method fullspace \
-    --subspace_assignment absolute \
-    --optimizer de \
-    --pop_size 100 \
-    --max_nfe 3000000 \
-    --seed 0
+python scripts/main.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method fullspace --subspace_assignment absolute --optimizer de --pop_size 100 --max_nfe 3000000 --seed 0
 ```
 
-### All arguments
+### Two-phase (`scripts/main_two_phase.py`)
+
+Split the total budget across two stages:
+
+1. **Phase 1 (full space, absolute)** — explore in $\mathbb{R}^D$ for `--full_nfe` evaluations ($x = z$).
+2. **Phase 2 (subspace)** — refine in a reduced subspace for `--sub_nfe` evaluations, warm-started from the phase-1 best solution. `--subspace_assignment` applies here only.
+
+Constraint: **`full_nfe + sub_nfe = max_nfe`**. Specify both budgets, or pass only one and the other is derived from `--max_nfe`.
+
+Phase 2 requires a reduced subspace (`random_projection`, `random_blocking`, or `lora`; not `fullspace`).
+
+```bash
+python scripts/main_two_phase.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method random_projection --subspace_dim 100 --subspace_assignment additive --optimizer de --pop_size 100 --max_nfe 3000000 --full_nfe 1500000 --sub_nfe 1500000 --phase2_init from_phase1 --seed 0
+```
+
+**Phase-2 handoff** (`--subspace_assignment` for phase 2 only)
+
+| `--subspace_assignment` | Warm start |
+|---|---|
+| `additive` | Sets $x_0$ to the phase-1 best; initializes the population near $z = 0$ (perturbations around that anchor). Recommended for LoRA (no exact `reduce`). |
+| `absolute` | Centers the population at `reduce(phase-1 best)` when the subspace supports it (RP, RB). |
+
+Extra arguments (in addition to all flags shared with `scripts/main.py`):
+
+| Argument | Default | Description |
+|---|---|---|
+| `--full_nfe` | (derived) | NFE budget for phase 1 (full space) |
+| `--sub_nfe` | (derived) | NFE budget for phase 2 (subspace) |
+| `--phase2_init` | `from_phase1` | `from_phase1` (warm-start from phase-1 best) or `uniform` (standard sampling) |
+
+W&B logs cumulative `nfe` across both phases and records `phase1_*` / `phase2_*` summary metrics.
+
+### Dual-EA (`scripts/main_dual_ea.py`)
+
+Two EAs run in parallel and exchange solutions each cycle. Each cycle runs **`m` full-space generations then `k` subspace generations** (`--full_iters m`, `--sub_iters k`; default `1+1`):
+
+1. **Full-space EA (absolute)** — `m` generations in $\mathbb{R}^D$; take the best solution.
+2. **Subspace EA (additive)** — set anchor $x_0$ to that best, refresh the subspace population, then run `k` generations in the reduced subspace ($x = x_0 + f(z)$).
+3. **Handoff** — inject the subspace best into the full-space population (replace worst).
+
+The shared NFE budget is `--max_nfe`. The subspace method must be reduced (`random_projection`, `random_blocking`, or `lora`; not `fullspace`). Additive subspace assignment is recommended.
+
+```bash
+python scripts/main_dual_ea.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method lora --lora_rank 4 --subspace_assignment additive --optimizer de --pop_size 100 --max_nfe 3000000 --seed 0 --benchmark_seed 0
+```
+
+Extra arguments (in addition to all flags shared with `scripts/main.py`):
+
+| Argument | Default | Description |
+|---|---|---|
+| `--full_iters` | `1` | Full-space generations per cycle ($m$ in $m+k$) |
+| `--sub_iters` | `1` | Subspace generations per cycle ($k$ in $m+k$) |
+| `--sub_anchor_update` | `reeval` | After updating $x_0$: `resample` (re-init near $z=0$) or `reeval` (keep $z$, re-evaluate under new $x_0$) |
+| `--fullspace_assignment` | `absolute` | Assignment mode for the full-space EA |
+
+W&B logs the same per-step keys as single-phase runs (`generation`, `best_fitness`, `mean_fitness`, `center_fitness`, `nfe`), plus dual-EA extras (`cycle`, `full_*`, `sub_*`).
+
+**W&B sweeps** (`configs/cec2013lsgo/d1000/dual_ea/`):
+
+| Config | Description |
+|---|---|
+| `lora/de_static.yaml` | LoRA ranks 1, 2, 4, 8; f1–f15; seeds 0–2 |
+| `random_projection/de_static.yaml` | Subspace $d \in \{10, 50\}$; f1–f5; seeds 0–2 |
+| `random_blocking/de_static.yaml` | Subspace $d \in \{10, 50\}$; f1–f5; seeds 0–2 |
+| `global/de_d32_additive.yaml` | All three subspace methods at $d = 32$; f1–f15; seeds 0–3 |
+
+```bash
+wandb sweep configs/cec2013lsgo/d1000/dual_ea/lora/de_static.yaml
+```
+
+### All arguments (single-phase)
 
 | Argument | Default | Description |
 |---|---|---|
@@ -136,7 +189,10 @@ Pass `--wandb` to enable. Every generation logs:
 
 ```
 .
-+-- main.py               # Entry point + argument parser
++-- scripts/
+|   +-- main.py           # Classic single-phase CLI
+|   +-- main_two_phase.py # Two-phase: full-space then subspace
+|   +-- main_dual_ea.py   # Dual-EA: alternating full-space and subspace
 +-- requirements.txt
 +-- subspace/
 |   +-- base.py           # Abstract Subspace class
@@ -160,18 +216,7 @@ Pass `--wandb` to enable. Every generation logs:
 ## Example ablation sweep
 
 ```bash
-for method in random_projection random_blocking lora; do
-  for d in 50 100 200 500; do
-    python main.py \
-      --problem cec2013_lsgo_f7 --dim 1000 \
-      --subspace_method $method --subspace_dim $d \
-      --optimizer de --pop_size 100 \
-      --max_nfe 3000000 --seed 0 \
-      --wandb --wandb_project evo-subspace-opt \
-      --wandb_group "ablation-d" \
-      --wandb_name "${method}-d${d}"
-  done
-done
+for method in random_projection random_blocking lora; do for d in 50 100 200 500; do python scripts/main.py --problem cec2013_lsgo_f7 --dim 1000 --subspace_method $method --subspace_dim $d --optimizer de --pop_size 100 --max_nfe 3000000 --seed 0 --wandb --wandb_project evo-subspace-opt --wandb_group "ablation-d" --wandb_name "${method}-d${d}"; done; done
 ```
 
 Note: for `lora`, pass `--lora_rank` instead of `--subspace_dim`. For a full-$D$ baseline, use `--subspace_method fullspace` (omit `--subspace_dim`) or run `wandb sweep configs/fullspace/de.yaml`.

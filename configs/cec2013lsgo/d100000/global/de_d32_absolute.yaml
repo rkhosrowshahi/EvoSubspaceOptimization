@@ -1,0 +1,111 @@
+# Global sweep: RP / blocking / LoRA + DE (static), subspace d=32; **absolute** assignment.
+#
+# --seed and subspace_method are swept; fixed F=0.5, CR=0.9.
+#
+# From repo root:
+#   wandb sweep configs/cec2013lsgo/d100000/global/de_d32_absolute.yaml
+#   wandb agent <entity>/<project>/<sweep_id>
+#
+# wandb_name: __auto__ -> scripts/main.py expands to a unique run name per trial (avoids
+# grid Cartesian explosion from pairing name lists with seed lists).
+
+name: subspace-de-d32-benchmark-static-d100000
+project: evo-subspace-opt
+# entity: your-team   # Optional; prefer env WANDB_ENTITY or: wandb sweep -e your-team ...
+
+program: scripts/main.py
+method: grid
+
+metric:
+  name: best_fitness
+  goal: minimize
+
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --wandb
+
+parameters:
+  wandb_project:
+    value: evo-subspace-opt
+  wandb_group:
+    value: "problem_{problem}-dim{dim}-{subspace_method}-subdim{subspace_dim}-{subspace_assignment}-{optimizer}-{de_selection}{de_n_diffs}{de_crossover}-F{de_mut_rate}-CR{de_cr_rate}-multiseed"
+  wandb_name:
+    value: __auto__
+
+  # --- swept ---
+  seed:
+    values:
+      - 0
+      - 1
+      - 2
+      - 3
+      # - 4
+      # - 5
+      # - 6
+      # - 7
+      # - 8
+      # - 9
+      # - 10
+      # - 11
+      # - 12
+      # - 13
+      # - 14
+
+  subspace_method:
+    values:
+      - random_blocking
+      - lora
+      - random_projection
+
+  problem:
+    values:
+    - cec2013_lsgo_f1
+    - cec2013_lsgo_f2
+    - cec2013_lsgo_f3
+    - cec2013_lsgo_f4
+    - cec2013_lsgo_f5
+    - cec2013_lsgo_f6
+    # - cec2013_lsgo_f7
+    - cec2013_lsgo_f8
+    - cec2013_lsgo_f9
+    - cec2013_lsgo_f10
+    - cec2013_lsgo_f11
+    - cec2013_lsgo_f12
+    - cec2013_lsgo_f13
+    - cec2013_lsgo_f14
+    - cec2013_lsgo_f15
+  subspace_assignment:
+    value: absolute
+  dim:
+    value: 100000
+  subspace_dim:
+    value: 32
+  lora_rank:
+    value: 32
+  optimizer:
+    value: de
+  pop_size:
+    value: 64
+  init_pop:
+    value: uniform
+  de_mut_rate:
+    value: 0.5
+  de_cr_rate:
+    value: 0.9
+  de_evolving:
+    value: false
+  de_selection:
+    value: rand
+  de_n_diffs:
+    value: 1
+  de_jitter:
+    value: false
+  de_crossover:
+    value: bin
+  max_nfe:
+    value: 3000000
+  log_every:
+    value: 1

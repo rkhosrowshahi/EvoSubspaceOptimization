@@ -70,6 +70,22 @@ def _func_file_index(canonical_id: str) -> int:
 # ---------------------------------------------------------------------------
 _GROUP_SIZE = 50      # default sub-component size for seed-based generation
 _OVERLAP = 5          # overlap between consecutive groups in F13/F14
+# Child stream tag for :func:`_structural_rng` (isolates benchmark data from EA init).
+_STRUCTURAL_SEED_ENTROPY = 0xCEC2013
+
+
+def _structural_rng(seed: int) -> np.random.Generator:
+    """RNG for benchmark structural data, isolated from typical EA init streams.
+
+    When ``D != 1000``, ``_xopt`` is drawn as ``uniform(lb, ub, D)``. PyMOO's
+    initial population uses the same bound box; with ``--seed == --benchmark_seed``
+    both streams used ``default_rng(seed)`` and the first individual could land
+    exactly on ``_xopt`` (reported ``best_fitness == 0``). A spawned child of
+    ``SeedSequence`` avoids that collision while staying deterministic in
+    ``benchmark_seed``.
+    """
+    child = np.random.SeedSequence([seed, _STRUCTURAL_SEED_ENTROPY]).spawn(1)[0]
+    return np.random.default_rng(child)
 
 
 # ===========================================================================
@@ -306,7 +322,7 @@ class LSGO2013:
             self._load_cdatafiles(_DATA_DIR)
             self.using_cdatafiles = True
         else:
-            self._generate_data_seed(np.random.default_rng(seed))
+            self._generate_data_seed(_structural_rng(seed))
             self.using_cdatafiles = False
 
     # ------------------------------------------------------------------
