@@ -108,7 +108,7 @@ Two EAs run in parallel and exchange solutions each cycle. Each cycle runs **`m`
 
 1. **Full-space EA (absolute)** — `m` generations in $\mathbb{R}^D$; take the best solution.
 2. **Subspace EA (additive)** — set anchor $x_0$ to that best, refresh the subspace population, then run `k` generations in the reduced subspace ($x = x_0 + f(z)$).
-3. **Handoff** — inject the subspace best into the full-space population (replace worst).
+3. **Handoff** — inject the subspace best into the full-space population by replacing the current full-space best when fitness improves (preserves weaker members as explorers).
 
 The shared NFE budget is `--max_nfe`. The subspace method must be reduced (`random_projection`, `random_blocking`, or `lora`; not `fullspace`). Additive subspace assignment is recommended.
 

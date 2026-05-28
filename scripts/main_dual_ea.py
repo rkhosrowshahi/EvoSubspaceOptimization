@@ -12,8 +12,8 @@ Each **cycle** runs ``m`` full-space generations, then ``k`` subspace generation
 1. Advance the full-space EA by ``m`` generations; take its best full-space solution.
 2. Set the subspace anchor ``x0`` to that solution, refresh the subspace population
    (re-sample around ``z = 0`` or re-evaluate under the new anchor).
-3. Advance the subspace EA by ``k`` generations; inject the subspace best into the
-   full-space population (replace worst).
+3. Advance the subspace EA by ``k`` generations; if the subspace best improves the
+   full-space elite, replace the best full-space individual with that candidate.
 
 Total NFE is ``full_evaluator.n_eval + sub_evaluator.n_eval`` and is capped by
 ``--max_nfe``.
@@ -153,19 +153,28 @@ def _inject_into_fullspace(
     full_problem: SubspaceProblem,
     x: np.ndarray,
 ) -> float:
-    """Replace the worst full-space individual with ``x``; return new fitness."""
+    """Replace the best full-space individual with ``x`` when fitness improves.
+
+  Injecting into the elite slot (rather than unconditionally overwriting the worst
+  member) preserves weaker full-space individuals as explorers while still promoting
+  a subspace refinement when it beats the current full-space best.
+    """
     pop = full_algo.pop
     F = pop.get("F").flatten()
     X = pop.get("X").copy()
-    worst_idx = int(np.argmax(F))
+    best_idx = int(np.argmin(F))
+    f_best = float(F[best_idx])
 
     xl, xu = full_problem.bounds()
     x_clip = np.clip(np.asarray(x, dtype=float).reshape(-1), xl, xu)
     f_new = float(_evaluate_batch(full_problem, x_clip.reshape(1, -1))[0, 0])
 
-    X[worst_idx] = x_clip
+    if f_new >= f_best:
+        return f_best
+
+    X[best_idx] = x_clip
     F_new = F.copy()
-    F_new[worst_idx] = f_new
+    F_new[best_idx] = f_new
     full_algo.pop = _population_from_arrays(X, F_new.reshape(-1, 1))
     full_algo.evaluator.n_eval += 1
     return f_new

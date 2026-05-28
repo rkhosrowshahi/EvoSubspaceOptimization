@@ -487,7 +487,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--plot_path",
         type=str,
-        default="results/figures/reverse_map_2d_to_3d",
+        default="results/synthetic_lora/figures/reverse_map_2d_to_3d",
         help="Output figure path for the combined 2D+3D visualization.",
     )
     parser.add_argument(
