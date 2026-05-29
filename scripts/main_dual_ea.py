@@ -12,8 +12,8 @@ Each **cycle** runs ``m`` full-space generations, then ``k`` subspace generation
 1. Advance the full-space EA by ``m`` generations; take its best full-space solution.
 2. Set the subspace anchor ``x0`` to that solution, refresh the subspace population
    (re-sample around ``z = 0`` or re-evaluate under the new anchor).
-3. Advance the subspace EA by ``k`` generations; if the subspace best improves the
-   full-space elite, replace the best full-space individual with that candidate.
+3. Advance the subspace EA by ``k`` generations; inject the subspace best into the
+   full-space population (replace worst) only if it beats the full-space pop best.
 
 Total NFE is ``full_evaluator.n_eval + sub_evaluator.n_eval`` and is capped by
 ``--max_nfe``.
@@ -42,8 +42,10 @@ from scripts.main import (
     build_parser as _build_base_parser,
     effective_subspace_param,
     optimizer_search_dim,
+    subspace_method_is_block_lora,
     subspace_method_is_fullspace,
     subspace_method_is_lora,
+    validate_lora_blocks,
 )
 from scripts.main_two_phase import CenteredSampling, _set_algorithm_sampling
 from subspace import build_subspace
@@ -152,32 +154,32 @@ def _inject_into_fullspace(
     full_algo,
     full_problem: SubspaceProblem,
     x: np.ndarray,
-) -> float:
-    """Replace the best full-space individual with ``x`` when fitness improves.
+    f_candidate: float,
+) -> tuple[float | None, bool]:
+    """Replace the worst full-space individual with ``x`` when ``f_candidate`` improves the pop best.
 
-  Injecting into the elite slot (rather than unconditionally overwriting the worst
-  member) preserves weaker full-space individuals as explorers while still promoting
-  a subspace refinement when it beats the current full-space best.
+    Injection is skipped when ``f_candidate >= min(F_full)``. Returns
+    ``(fitness, injected)``; fitness is ``None`` when skipped.
     """
     pop = full_algo.pop
     F = pop.get("F").flatten()
+    f_full_best = float(np.min(F))
+    if f_candidate >= f_full_best:
+        return None, False
+
     X = pop.get("X").copy()
-    best_idx = int(np.argmin(F))
-    f_best = float(F[best_idx])
+    worst_idx = int(np.argmax(F))
 
     xl, xu = full_problem.bounds()
     x_clip = np.clip(np.asarray(x, dtype=float).reshape(-1), xl, xu)
     f_new = float(_evaluate_batch(full_problem, x_clip.reshape(1, -1))[0, 0])
 
-    if f_new >= f_best:
-        return f_best
-
-    X[best_idx] = x_clip
+    X[worst_idx] = x_clip
     F_new = F.copy()
-    F_new[best_idx] = f_new
+    F_new[worst_idx] = f_new
     full_algo.pop = _population_from_arrays(X, F_new.reshape(-1, 1))
     full_algo.evaluator.n_eval += 1
-    return f_new
+    return f_new, True
 
 
 def _refresh_subspace_after_anchor(
@@ -320,6 +322,8 @@ def init_wandb_dual_ea(args: argparse.Namespace) -> None:
         )
         if subspace_method_is_lora(args.subspace_method):
             args.wandb_name += f"-lora_rank{args.lora_rank}"
+            if subspace_method_is_block_lora(args.subspace_method):
+                args.wandb_name += f"-blocks{args.lora_blocks}"
         else:
             args.wandb_name += f"-subdim{eff_d}"
         args.wandb_name += (
@@ -482,10 +486,13 @@ def run_dual_ea(
 
         # ---- Step 3: inject subspace best into full-space population ----
         if _budget_left(full_algo, sub_algo, max_nfe) >= 1:
-            f_inj = _inject_into_fullspace(full_algo, full_problem, best_x_sub)
-            global_best_x, global_best_f = _track_best(
-                best_x_sub, f_inj, global_best_x, global_best_f
+            f_inj, injected = _inject_into_fullspace(
+                full_algo, full_problem, best_x_sub, f_sub
             )
+            if injected and f_inj is not None:
+                global_best_x, global_best_f = _track_best(
+                    best_x_sub, f_inj, global_best_x, global_best_f
+                )
 
         if callback is not None:
             callback.notify(
@@ -529,6 +536,12 @@ def main(argv: list[str] | None = None) -> None:
             "--lora_rank is required when the subspace method uses LoRA"
         )
 
+    if subspace_method_is_block_lora(args.subspace_method):
+        try:
+            validate_lora_blocks(args.lora_blocks, args.dim)
+        except ValueError as exc:
+            parser.error(str(exc))
+
     if args.subspace_dim is None and not subspace_method_is_lora(args.subspace_method):
         parser.error(
             "--subspace_dim is required for random_projection and random_blocking"
@@ -559,6 +572,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     if subspace_method_is_lora(args.subspace_method):
         sub_stat = f"rank r={eff_sub}"
+        if subspace_method_is_block_lora(args.subspace_method):
+            sub_stat += f", blocks={args.lora_blocks}"
     else:
         sub_stat = f"d={eff_sub}"
     print(
@@ -604,6 +619,7 @@ def main(argv: list[str] | None = None) -> None:
         lb=lsgo.lb,
         ub=lsgo.ub,
         device=args.subspace_device,
+        lora_blocks=args.lora_blocks,
     )
     sub_problem = SubspaceProblem(lsgo=lsgo, subspace=sub_subspace)
 

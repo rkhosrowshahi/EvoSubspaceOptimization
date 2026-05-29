@@ -6,7 +6,6 @@ See README.md for a full usage example; run ``python scripts/main.py --help`` fo
 from __future__ import annotations
 
 import argparse
-import math
 import re
 import sys
 import time
@@ -20,7 +19,7 @@ import numpy as np
 from pymoo.optimize import minimize
 from pymoo.termination import get_termination
 
-from subspace import build_subspace
+from subspace import build_subspace, lora_method_is_block, lora_search_dim, validate_lora_blocks
 from problems import LSGOProblem
 from optimizers import build_algorithm
 from utils import LoggingCallback, SubspaceProblem
@@ -29,6 +28,11 @@ from utils import LoggingCallback, SubspaceProblem
 def subspace_method_is_lora(subspace_method: str) -> bool:
     """True when the reduction is LoRA-based (method id contains ``lora``)."""
     return "lora" in subspace_method
+
+
+def subspace_method_is_block_lora(subspace_method: str) -> bool:
+    """True when the reduction is a block LoRA variant."""
+    return lora_method_is_block(subspace_method)
 
 
 def subspace_method_is_fullspace(subspace_method: str) -> bool:
@@ -58,8 +62,12 @@ def optimizer_search_dim(args: argparse.Namespace) -> int:
             raise RuntimeError(
                 "lora_rank is unset; main() must validate CLI args before calling this"
             )
-        m = math.ceil(math.sqrt(args.dim))
-        return 2 * m * args.lora_rank
+        return lora_search_dim(
+            args.subspace_method,
+            args.dim,
+            args.lora_rank,
+            args.lora_blocks,
+        )
     return args.subspace_dim
 
 
@@ -115,6 +123,11 @@ def build_parser() -> argparse.ArgumentParser:
             "random_projection",
             "random_blocking",
             "lora",
+            "lora_ib",
+            "lora_shared",
+            "lora_gated",
+            "lora_diag",
+            "lora_rank1",
             "fullspace",
             "none",
         ],
@@ -140,6 +153,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--lora_blocks",
+        type=int,
+        default=1,
+        help=(
+            "Number of balanced contiguous blocks for block LoRA variants "
+            "(lora_ib, lora_shared, lora_gated, lora_diag, lora_rank1). "
+            "Ignored for global lora unless recorded as metadata."
+        ),
+    )
+    parser.add_argument(
         "--subspace_assignment",
         type=str,
         default="absolute",
@@ -155,8 +178,8 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default="cuda:0",
         help=(
-            "PyTorch device for random_projection / LoRA matmul in expand() "
-            "(e.g. cuda, cuda:0, cpu)."
+            "PyTorch device for random_projection / global LoRA matmul in expand() "
+            "(e.g. cuda, cuda:0, cpu). Block LoRA variants always use NumPy expand()."
         ),
     )
 
@@ -369,6 +392,8 @@ def init_wandb(args: argparse.Namespace) -> None:
         args.wandb_name = (f"{args.problem}-dim{args.dim}-{args.subspace_method}")
         if subspace_method_is_lora(args.subspace_method):
             args.wandb_name += f"-lora_rank{args.lora_rank}"
+            if subspace_method_is_block_lora(args.subspace_method):
+                args.wandb_name += f"-blocks{args.lora_blocks}"
         elif not subspace_method_is_fullspace(args.subspace_method):
             args.wandb_name += f"-subdim{eff_d}"
         args.wandb_name += (
@@ -427,6 +452,12 @@ def main(argv: list[str] | None = None) -> None:
             "--lora_rank is required when the subspace method uses LoRA"
         )
 
+    if subspace_method_is_block_lora(args.subspace_method):
+        try:
+            validate_lora_blocks(args.lora_blocks, args.dim)
+        except ValueError as exc:
+            parser.error(str(exc))
+
     if (
         not subspace_method_is_fullspace(args.subspace_method)
         and not subspace_method_is_lora(args.subspace_method)
@@ -452,6 +483,8 @@ def main(argv: list[str] | None = None) -> None:
         dev_suffix = ""
     elif subspace_method_is_lora(args.subspace_method):
         sub_stat = f"rank r={eff_sub}"
+        if subspace_method_is_block_lora(args.subspace_method):
+            sub_stat += f", blocks={args.lora_blocks}"
         dev_suffix = f", device={args.subspace_device}"
     else:
         sub_stat = f"d={eff_sub}"
@@ -483,6 +516,7 @@ def main(argv: list[str] | None = None) -> None:
         lb=lsgo.lb,
         ub=lsgo.ub,
         device=args.subspace_device,
+        lora_blocks=args.lora_blocks,
     )
     print(f"  Search dim     : {subspace.search_dim}")
     if args.subspace_assignment == "additive":

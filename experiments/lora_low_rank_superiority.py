@@ -670,13 +670,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--plot_path",
         type=str,
-        default="results/synthetic_lora/figures/lora_low_rank_superiority",
+        default="results/figures/lora_low_rank_superiority",
         help="Output path base without extension; appends _{benchmark} when multiple benchmarks.",
     )
     parser.add_argument(
         "--table_dir",
         type=str,
-        default="results/synthetic_lora/tables",
+        default="results/tables",
         help="Directory for benchmark CSV tables (one file per benchmark).",
     )
     return parser.parse_args()

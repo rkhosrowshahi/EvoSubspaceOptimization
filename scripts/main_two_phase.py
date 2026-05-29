@@ -31,8 +31,10 @@ from scripts.main import (
     build_parser as _build_base_parser,
     effective_subspace_param,
     optimizer_search_dim,
+    subspace_method_is_block_lora,
     subspace_method_is_fullspace,
     subspace_method_is_lora,
+    validate_lora_blocks,
 )
 from subspace import build_subspace
 from subspace.base import Subspace
@@ -335,6 +337,8 @@ def init_wandb_two_phase(args: argparse.Namespace, full_nfe: int, sub_nfe: int) 
         )
         if subspace_method_is_lora(args.subspace_method):
             args.wandb_name += f"-lora_rank{args.lora_rank}"
+            if subspace_method_is_block_lora(args.subspace_method):
+                args.wandb_name += f"-blocks{args.lora_blocks}"
         else:
             args.wandb_name += f"-subdim{eff_d}"
         args.wandb_name += (
@@ -402,6 +406,12 @@ def main(argv: list[str] | None = None) -> None:
             "--lora_rank is required when the subspace method uses LoRA"
         )
 
+    if subspace_method_is_block_lora(args.subspace_method):
+        try:
+            validate_lora_blocks(args.lora_blocks, args.dim)
+        except ValueError as exc:
+            parser.error(str(exc))
+
     if args.subspace_dim is None and not subspace_method_is_lora(args.subspace_method):
         parser.error(
             "--subspace_dim is required for random_projection and random_blocking"
@@ -425,6 +435,8 @@ def main(argv: list[str] | None = None) -> None:
     print(f"  Phase 1        : fullspace, absolute (NFE={full_nfe})")
     if subspace_method_is_lora(args.subspace_method):
         sub_stat = f"rank r={eff_sub}"
+        if subspace_method_is_block_lora(args.subspace_method):
+            sub_stat += f", blocks={args.lora_blocks}"
     else:
         sub_stat = f"d={eff_sub}"
     print(
@@ -488,6 +500,7 @@ def main(argv: list[str] | None = None) -> None:
         ub=lsgo.ub,
         x0=phase2_x0,
         device=args.subspace_device,
+        lora_blocks=args.lora_blocks,
     )
 
     warm_center: np.ndarray | None = None

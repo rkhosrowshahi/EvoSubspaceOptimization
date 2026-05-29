@@ -39,38 +39,38 @@ parameters:
   # --- swept ---
   problem:
     values:
-      # - cec2013_lsgo_f1
-      # - cec2013_lsgo_f2
-      # - cec2013_lsgo_f3
-      # - cec2013_lsgo_f4
-      # - cec2013_lsgo_f5
-      - cec2013_lsgo_f6
-      - cec2013_lsgo_f7
-      - cec2013_lsgo_f8
-      - cec2013_lsgo_f9
-      - cec2013_lsgo_f10
-      - cec2013_lsgo_f11
-      - cec2013_lsgo_f12
-      - cec2013_lsgo_f13
-      - cec2013_lsgo_f14
-      - cec2013_lsgo_f15
+      - cec2013_lsgo_f1
+      - cec2013_lsgo_f2
+      - cec2013_lsgo_f3
+      - cec2013_lsgo_f4
+      - cec2013_lsgo_f5
+      # - cec2013_lsgo_f6
+      # - cec2013_lsgo_f7
+      # - cec2013_lsgo_f8
+      # - cec2013_lsgo_f9
+      # - cec2013_lsgo_f10
+      # - cec2013_lsgo_f11
+      # - cec2013_lsgo_f12
+      # - cec2013_lsgo_f13
+      # - cec2013_lsgo_f14
+      # - cec2013_lsgo_f15
   seed:
     values:
-      - 0
-      - 1
-      - 2
-      # - 3
-      # - 4
-      # - 5
-      # - 6
-      # - 7
-      # - 8
-      # - 9
-      # - 10
-      # - 11
-      # - 12
-      # - 13
-      # - 14
+      # - 0
+      # - 1
+      # - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+      - 11
+      - 12
+      - 13
+      - 14
   subspace_assignment:
     value: absolute
   subspace_method:
