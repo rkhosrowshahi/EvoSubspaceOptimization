@@ -1,0 +1,107 @@
+# Block LoRA variant comparison + DE - CEC f1-f15; swept methods, ranks, seeds, assignment.
+# Fixed lora_blocks=10, rank r=2, F=0.5, CR=0.9. Uses subspace_device=cuda:0.
+#
+# Grid size: 5 methods x 3 ranks x 15 problems x 3 seeds x 2 assignments = 1350 runs.
+# For a smaller pilot, comment out problems/seeds/assignments as in other configs.
+#
+# From repo root:
+#   wandb sweep configs/cec2013lsgo/d1000/block_lora/de_static.yaml
+#   wandb agent <entity>/<project>/<sweep_id>
+
+name: cec2013-lsgo-subspace-block-lora-de-static-d1000
+project: evo-subspace-opt
+# entity: your-team   # Optional; prefer env WANDB_ENTITY or: wandb sweep -e your-team ...
+
+program: scripts/main.py
+method: grid
+
+metric:
+  name: best_fitness
+  goal: minimize
+
+command:
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --wandb
+
+parameters:
+  wandb_project:
+    value: evo-subspace-opt
+  wandb_group:
+    value: "{problem}-dim{dim}-{subspace_method}-lora_rank{lora_rank}-blocks{lora_blocks}-{subspace_assignment}-{optimizer}-F{de_mut_rate}-CR{de_cr_rate}-multiseed"
+  wandb_name:
+    value: __auto__
+
+  # --- swept ---
+  subspace_method:
+    values:
+      - lora_ib
+      - lora_shared
+      - lora_gated
+      - lora_diag
+      - lora_rank1
+  lora_rank:
+    values:
+      - 1
+      - 2
+      - 4
+  problem:
+    values:
+      - cec2013_lsgo_f1
+      - cec2013_lsgo_f2
+      - cec2013_lsgo_f3
+      - cec2013_lsgo_f4
+      - cec2013_lsgo_f5
+      - cec2013_lsgo_f6
+      - cec2013_lsgo_f7
+      - cec2013_lsgo_f8
+      - cec2013_lsgo_f9
+      - cec2013_lsgo_f10
+      - cec2013_lsgo_f11
+      - cec2013_lsgo_f12
+      - cec2013_lsgo_f13
+      - cec2013_lsgo_f14
+      - cec2013_lsgo_f15
+  seed:
+    values:
+      - 0
+      - 1
+      - 2
+  subspace_assignment:
+    values:
+      - absolute
+      - additive
+
+  # --- fixed ---
+  lora_blocks:
+    value: 10
+  dim:
+    value: 1000
+  subspace_device:
+    value: cuda:0
+  optimizer:
+    value: de
+  pop_size:
+    value: 100
+  init_pop:
+    value: uniform
+  de_mut_rate:
+    value: 0.5
+  de_cr_rate:
+    value: 0.9
+  de_evolving:
+    value: false
+  de_selection:
+    value: rand
+  de_n_diffs:
+    value: 1
+  de_jitter:
+    value: false
+  de_crossover:
+    value: bin
+  max_nfe:
+    value: 3000000
+  log_every:
+    value: 1
