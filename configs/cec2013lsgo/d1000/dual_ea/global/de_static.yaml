@@ -40,11 +40,11 @@ parameters:
   subspace_method:
     values:
       - lora
-      - lora_ib
+      # - lora_ib
       - lora_shared
       - lora_gated
-      - lora_diag
-      - lora_rank1
+      # - lora_diag
+      # - lora_rank1
   problem:
     values:
       - cec2013_lsgo_f1
@@ -64,15 +64,32 @@ parameters:
       - cec2013_lsgo_f15
   seed:
     values:
-      - 0
-      - 1
-      # - 2
+      # - 0
+      # - 1
+      - 2
+      - 3
+      - 4
+      # - 5
+      # - 6
+      # - 7
+      # - 8
+      # - 9
+      # - 10
+      # - 11
+      # - 12
+      # - 13
+      # - 14
+      # - 15
 
   # --- fixed ---
   lora_rank:
     value: 1
   lora_blocks:
     value: 10
+  sub_iters:
+    value: 10
+  full_iters:
+    value: 1
   subspace_assignment:
     value: additive
   fullspace_assignment:
