@@ -65,26 +65,6 @@ Benchmarks* generateFuncObj(int funcID){
     fp = new F14();
   }else if (funcID==15){
     fp = new F15();
-  }else if (funcID==16){
-    fp = new F16();
-  }else if (funcID==17){
-    fp = new F17();
-  }else if (funcID==18){
-    fp = new F18();
-  }else if (funcID==19){
-    fp = new F19();
-  }else if (funcID==20){
-    fp = new F20();
-  }else if (funcID==21){
-    fp = new F21();
-  }else if (funcID==22){
-    fp = new F22();
-  }else if (funcID==23){
-    fp = new F23();
-  }else if (funcID==24){
-    fp = new F24();
-  }else if (funcID==25){
-    fp = new F25();
   }else{
     cerr<<"Fail to locate Specified Function Index"<<endl;
     exit(-1);

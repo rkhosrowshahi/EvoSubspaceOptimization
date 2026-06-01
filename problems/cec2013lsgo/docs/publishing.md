@@ -32,6 +32,7 @@ The workflow `.github/workflows/docs.yml` runs on every push to `main`.
 |------|------------------------|
 | Home | `README.md` (included via `docs/index.md`) |
 | Usage | `docs/usage.md` |
+| Changelog | `CHANGELOG.md` (included via `docs/changelog.md`) |
 | License / Publishing | `docs/license.md`, `docs/publishing.md` |
 
 Edit `README.md` (home page, included) or `docs/usage.md`; push to redeploy the site.

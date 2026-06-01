@@ -13,7 +13,7 @@ sourcefiles = ['cec2013lsgo/cec2013.pyx']
 
 sourcefiles += ['cec2013lsgo/eval_func.cpp', 'cec2013lsgo/Benchmarks.cpp']
 
-for i in range(1, 26):
+for i in range(1, 16):
     sourcefiles += ['cec2013lsgo/F%d.cpp' % i]
 
 cec2013lsgo = Extension("cec2013lsgo.cec2013",
@@ -57,6 +57,11 @@ setup(
     long_description_content_type='text/markdown',
     license='GPL V3',
     url='https://github.com/rkhosrowshahi/cec2013lsgo',
+    project_urls={
+        'Documentation': 'https://rkhosrowshahi.github.io/cec2013lsgo/',
+        'Changelog': 'https://github.com/rkhosrowshahi/cec2013lsgo/blob/main/CHANGELOG.md',
+        'Source': 'https://github.com/rkhosrowshahi/cec2013lsgo',
+    },
     packages=['cec2013lsgo'],
     install_requires=['cython', 'numpy'],
     ext_modules=cythonize(cec2013lsgo),

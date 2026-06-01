@@ -2,9 +2,13 @@
 
 This project is licensed under the **GNU General Public License v3.0**.
 
-See the full text in the repository: [LICENSE](https://github.com/rkhosrowshahi/cec2013lsgo/blob/main/LICENSE).
+| Document | Description |
+|----------|-------------|
+| [LICENSE](https://github.com/rkhosrowshahi/cec2013lsgo/blob/main/LICENSE) | Full GPLv3 text |
+| [NOTICE](https://github.com/rkhosrowshahi/cec2013lsgo/blob/main/NOTICE) | Copyright and attribution |
+| [CHANGELOG.md](https://github.com/rkhosrowshahi/cec2013lsgo/blob/main/CHANGELOG.md) | Modifications from upstream |
 
-The original C++ implementation and Python/Cython wrapper are copyright Daniel Molina ([dmolina/cec2013lsgo](https://github.com/dmolina/cec2013lsgo)). The pure-Python `LSGO2013` port and documentation in this fork are distributed under the same GPLv3 terms when you redistribute the package.
+The original C++ implementation and Python/Cython wrapper are copyright **Daniel Molina** ([dmolina/cec2013lsgo](https://github.com/dmolina/cec2013lsgo)). The pure-Python `LSGO2013` port, tests, and documentation in this fork are copyright **Rasa Khosrowshahli** (2026) and are distributed under GPLv3 when you redistribute the package.
 
 ## Citation
 

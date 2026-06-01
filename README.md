@@ -96,7 +96,7 @@ Dual-EA and phase 2 require a **reduced** subspace (not `fullspace`). **Additive
 | Docs | [`problems/cec2013lsgo/README.md`](problems/cec2013lsgo/README.md), [usage guide](https://rkhosrowshahi.github.io/cec2013lsgo/usage/) |
 | License | Bundled benchmark code is **GPLv3** ([`problems/cec2013lsgo/LICENSE`](problems/cec2013lsgo/LICENSE)); other project code is **Apache-2.0** ([`LICENSE`](LICENSE)) |
 
-Forked from [dmolina/cec2013lsgo](https://github.com/dmolina/cec2013lsgo); see the benchmark README for API changes (pure-Python `LSGO2013`, F16–F25 removed).
+Forked from [dmolina/cec2013lsgo](https://github.com/dmolina/cec2013lsgo); see the benchmark README for the pure-Python `LSGO2013` API (F1–F15, any dimension).
 
 ---
 

@@ -1,0 +1,29 @@
+CEC-2013 Large-Scale Global Optimization (LSGO) — copyright notice
+================================================================
+
+This package is free software licensed under the GNU General Public License
+version 3 (GPLv3). See the file LICENSE for the full license text.
+
+Upstream
+--------
+- Python/Cython wrapper and C++ integration: Copyright (C) Daniel Molina.
+  Based on https://github.com/dmolina/cec2013lsgo (GPLv3).
+
+Original benchmark implementation
+---------------------------------
+- CEC-2013 LSGO C++ test suite: Wenxiang Chen, Colorado State University.
+- Competition definition: X. Li, K. Tang, M. N. Omidvar, Z. Yang, K. Qin,
+  RMIT University, 2013. http://goanna.cs.rmit.edu.au/~xiaodong/cec13-lsgo/competition/
+
+Modifications in this repository
+--------------------------------
+- Pure-Python ``LSGO2013`` implementation (``cec2013lsgo/benchmarks.py``),
+  documentation, tests, and packaging changes:
+  Copyright (C) 2026 Rasa Khosrowshahli.
+
+  See CHANGELOG.md for a summary of changes relative to dmolina/cec2013lsgo.
+
+Distribution
+------------
+When you convey this software (source or binary), you must comply with GPLv3,
+including providing corresponding source and this notice.

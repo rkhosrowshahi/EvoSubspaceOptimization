@@ -186,20 +186,20 @@ for _ in range(1000):
 print(best_f)
 ```
 
-## Legacy Cython API (upstream)
+## Legacy Cython API (optional)
 
-The original package exposed:
+[dmolina/cec2013lsgo](https://github.com/dmolina/cec2013lsgo) also ships a Cython binding (F1–F15, **D = 1000** only):
 
 ```python
 from cec2013lsgo.cec2013 import Benchmark
 
 bench = Benchmark()
-info = bench.get_info(1)          # function index 1..25
+info = bench.get_info(1)          # function index 1..15
 fn = bench.get_function(1)
 fn(np.zeros(1000))
 ```
 
-That path requires building the C++ extension: `pip install -e .` (needs g++ and Cython). **New code should use `LSGO2013`.** F16–F25 exist only in the legacy C++ layer.
+Build with `pip install -e .` (g++ and Cython). **New code should use `LSGO2013`** for arbitrary dimension and seed-based instances.
 
 ## Troubleshooting
 

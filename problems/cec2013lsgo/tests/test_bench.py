@@ -1,3 +1,5 @@
+"""Legacy Cython Benchmark tests (F1-F15, D=1000). Requires compiled extension."""
+
 from cec2013lsgo import cec2013
 import pytest
 import numpy as np
@@ -14,13 +16,13 @@ def sol():
 
 
 def test_info(bench):
-    """
-    Test the information about each function
-    """
-    expected_upper = {1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 32, 7: 100, 8: 100, 9: 5, 10: 32, 11: 100, 12: 100, 13: 100, 14: 100, 15: 100, 
-                      16: 100, 17: 5, 18: 32, 19: 100, 20: 100, 21: 100, 22: 5, 23: 32, 24: 100, 25: 100}
+    """Metadata for F1-F15 matches the CEC-2013 competition (D=1000)."""
+    expected_upper = {
+        1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 32, 7: 100, 8: 100,
+        9: 5, 10: 32, 11: 100, 12: 100, 13: 100, 14: 100, 15: 100,
+    }
     num_funs = bench.get_num_functions()
-    assert num_funs == 25
+    assert num_funs == 15
 
     for i in range(1, num_funs + 1):
         info = bench.get_info(i)
@@ -32,18 +34,12 @@ def test_info(bench):
 
 
 def test_nonan(bench, sol):
-    """
-    Check that for all solutions is not nan
-    """
     for fun_id in range(1, bench.get_num_functions() + 1):
         fn = bench.get_function(fun_id)
         assert not np.isnan(fn(sol))
 
 
 def test_values(bench, sol):
-    """
-    Check the results for zero for each function
-    """
     values_expected = [
         2.09833896353343505859E+11,
         4.76203116166061372496E+04,
@@ -59,27 +55,9 @@ def test_values(bench, sol):
         1.71135423694972143555E+12,
         8.27380048985966720000E+16,
         4.40797968120962457600E+18,
-        2.39389233661550150000E+15]
+        2.39389233661550150000E+15,
+    ]
 
     for fun_id in range(1, 16):
         fn = bench.get_function(fun_id)
         assert fn(sol) == values_expected[fun_id - 1]
-
-# def test_many_functions(bench,sol):
-# print ""
-#    import time
-#
-#    startglobal = time.time()
-#
-#    for fun_id in range(1, 16):
-#        fn = bench.get_function(fun_id)
-#        start = time.time()
-#
-#        for i in range(1, 10000):
-#            assert fn(sol)>=0
-#
-#        end = time.time()
-#        print "F%d: %.2f segs" %(fun_id,end-start)
-#
-#    endglobal = time.time()
-#    print "Total: %.2f segs" %(endglobal-startglobal)

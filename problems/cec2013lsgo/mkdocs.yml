@@ -46,6 +46,7 @@ plugins:
 nav:
   - Home: index.md
   - Usage: usage.md
+  - Changelog: changelog.md
   - License: license.md
   - Publishing: publishing.md
 

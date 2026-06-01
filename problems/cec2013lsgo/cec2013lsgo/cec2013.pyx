@@ -53,26 +53,20 @@ cdef class Benchmark:
 
         optimum = 0
 
-        if (fun in [2, 5, 9, 17, 22]):
+        if (fun in [2, 5, 9]):
             range_fun = 5
-        elif (fun in [3, 6, 10, 18, 23]):
+        elif (fun in [3, 6, 10]):
             range_fun = 32
         else:
             range_fun = 100
 
-        if (fun in range(16, 21)):
-            dim = 10000
-        elif (fun in range(21, 26)):
-            dim = 100000
-        else:
-            dim = 1000
-
+        dim = 1000
 
         return {'lower': -range_fun, 'upper': range_fun, 'threshold': 0,
                 'best': optimum, 'dimension': dim}
 
     def get_num_functions(self):
-        return 25
+        return 15
 
     def __dealloc(self):
         free_func()

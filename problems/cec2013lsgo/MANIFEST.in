@@ -1,2 +1,6 @@
+include LICENSE
+include NOTICE
+include CHANGELOG.md
 include *.txt *.md *.py
 recursive-include cec2013lsgo *.py *.cpp *.c *.h *.pyx
+recursive-include cec2013lsgo/cdatafiles *.txt

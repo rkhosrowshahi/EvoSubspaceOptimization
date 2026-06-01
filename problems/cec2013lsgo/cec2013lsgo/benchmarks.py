@@ -1,5 +1,17 @@
+# Copyright (C) 2018 Daniel Molina <dmolina@decsai.ugr.es>
+# Copyright (C) 2026 Rasa Khosrowshahli
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version. See LICENSE and NOTICE in the repository root.
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Pure-Python CEC-2013 Large-Scale Global Optimization (LSGO) benchmark
 functions F1-F15.
+
+Derived from dmolina/cec2013lsgo (GPLv3). See CHANGELOG.md for modifications.
 
 Data-source policy
 ------------------
