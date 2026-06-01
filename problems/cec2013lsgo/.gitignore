@@ -50,6 +50,10 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# MkDocs
+site/
+.cache/
+
 # PyBuilder
 target/
 *.o

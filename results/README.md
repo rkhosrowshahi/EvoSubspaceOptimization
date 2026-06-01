@@ -11,9 +11,11 @@
 
 ## Regenerate LSGO tables (dim 1000)
 
+From the repository root:
+
 ```bash
-cd projects/EvoSubspaceOptimization/results
-python3 generate_table.py --dim 1000
+cd results
+python generate_table.py --dim 1000
 ```
 
 Writes to `cec2013_lsgo/dim1000/`:
@@ -27,13 +29,15 @@ Writes to `cec2013_lsgo/dim1000/`:
 LaTeX only from existing CSV:
 
 ```bash
-python3 generate_table.py --dim 1000 --from-local
+cd results
+python generate_table.py --dim 1000 --from-local
 ```
 
 ## Run id lookup (no W&B API)
 
 ```bash
-python3 -c "
+cd results
+python -c "
 from pathlib import Path
 from generate_table import load_runs_index, lookup_run_ids_by_wandb_group
 p = Path('cec2013_lsgo/dim1000/cec2013_lsgo_all_fs_dim1000_by_group_runs.json')
@@ -41,3 +45,5 @@ g = 'cec2013_lsgo_f1-dim1000-dual_ea-lora-lora_rank1-blocks10-additive-reeval-de
 print(lookup_run_ids_by_wandb_group(load_runs_index(p), g))
 "
 ```
+
+For experiment workflows and W&B sweep paths, see [`docs/USAGE.md`](../docs/USAGE.md).

@@ -1,2 +1,2 @@
-include *.txt *.rst *.py
-recursive-include cec2013lsgo *.rst *.py *.cpp *.c *.h *.pyx
+include *.txt *.md *.py
+recursive-include cec2013lsgo *.py *.cpp *.c *.h *.pyx

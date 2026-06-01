@@ -45,16 +45,18 @@ class PyTest(TestCommand):
 
 setup(
     name='cec2013lsgo',
-    version='2.1',
+    version='3.0.0',
     author='Daniel Molina',
     author_email='dmolina@decsai.ugr.es',
-    maintainer='Daniel Molina',
-    description='Package for benchmark for the Real \
-    Large Scale Global Optimization session on IEEE \
-    Congress on Evolutionary Computation CEC\'2013',
-    long_description=open('README.rst').read(),
+    maintainer='Rasa Khosrowshahli',
+    description=(
+        'CEC-2013 LSGO benchmark F1-F15: pure-Python LSGO2013 (any D, seed-based) '
+        'plus optional legacy Cython/C++ bindings'
+    ),
+    long_description=open('README.md', encoding='utf-8').read(),
+    long_description_content_type='text/markdown',
     license='GPL V3',
-    url='https://github.com/dmolina/cec2013lsgo',
+    url='https://github.com/rkhosrowshahi/cec2013lsgo',
     packages=['cec2013lsgo'],
     install_requires=['cython', 'numpy'],
     ext_modules=cythonize(cec2013lsgo),

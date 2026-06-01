@@ -1,6 +1,21 @@
 # Evolutionary Subspace Optimization
 
-Evolutionary Algorithms (EAs) struggle with high-dimensional search spaces. This project applies **dimensionality-reduction subspaces** to large-scale global optimization problems: the EA operates in a low-dimensional search space $d$ while solutions are projected back to the $D$-dimensional objective search space before fitness evaluation.
+Evolutionary algorithms (EAs) struggle in very high-dimensional search spaces. This project runs EAs in a **low-dimensional subspace** \(z \in \mathbb{R}^{d_z}\) and maps candidates to the full objective space \(x \in \mathbb{R}^D\) before each fitness evaluation. Experiments target the **CEC-2013 Large Scale Global Optimization (LSGO)** benchmark (F1–F15).
+
+**Documentation:** step-by-step usage, sweep catalog, and full CLI tables → [`docs/USAGE.md`](docs/USAGE.md).
+
+---
+
+## What changed in this repository
+
+This tree is the **active development line** of the evolutionary subspace optimization codebase (fork/evolution of an earlier layout). Notable updates compared to older snapshots:
+
+- **CLI entry points** under `scripts/` (`main.py`, `main_two_phase.py`, `main_dual_ea.py`) instead of a repo-root `main.py`.
+- **Bundled CEC-2013 LSGO** in `problems/cec2013lsgo/` with a seed-based Python implementation (F1–F15, arbitrary \(D\)); no runtime dependency on external benchmark packages for LSGO runs.
+- **LoRA family**: global `lora` plus block variants (`lora_ib`, `lora_shared`, `lora_gated`, `lora_diag`, `lora_rank1`) with `--lora_blocks`.
+- **Optional PyTorch** matmul for random projection and global LoRA (`--subspace_device`).
+- **W&B sweep configs** under `configs/cec2013lsgo/` including dual-EA and block-LoRA grids.
+- **Results tooling** under `results/` (`generate_table.py`, LaTeX/CSV exports).
 
 ---
 
@@ -8,180 +23,80 @@ Evolutionary Algorithms (EAs) struggle with high-dimensional search spaces. This
 
 | Concept | Description |
 |---|---|
-| **Objective** | Minimize benchmark fitness $f(x)$ with $x \in \mathbb{R}^D$ |
-| **Objective search space** | $D$-dimensional problem (CEC-2013 LSGO, $D \in \{10^3,\, 5{\cdot}10^3,\, 10^4,\, 10^5,\, 10^6\}$) |
-| **Subspace Search** | $d$-dimensional latent space the EA sees |
-| **Subspace to Fullspace** | Mapping $z \in \mathbb{R}^d \xrightarrow{\Phi} x \in \mathbb{R}^D$ |
-| **Absolute Assignment** | *Absolute*: $x = z \cdot P$ |
-| **Additive Assignment** | *Additive*: $x = x_0 + z \cdot P$ |
+| **Objective** | Minimize benchmark fitness \(f(x)\), \(x \in \mathbb{R}^D\) |
+| **Objective space** | CEC-2013 LSGO; \(D \in \{10^3,\, 5{\cdot}10^3,\, 10^4,\, 10^5,\, 10^6\}\) |
+| **Subspace search** | EA optimizes \(z\); \(\Phi(z)\) maps to \(x\) |
+| **Absolute** | \(x = \Phi(z)\) (after bounds handling) |
+| **Additive** | \(x = x_0 + \Phi(z)\); anchor \(x_0\) from seed or handoff |
 
-### Subspace methods
+### Subspace methods (summary)
 
-| Method | `--subspace_method` | $\Phi(z)$ | Search dim |
+| Method | CLI | Size knob | Search dim |
 |---|---|---|---|
-| Random Projection | `random_projection` | $z \cdot P$ ($P \in \mathbb{R}^{d \times D}$, row-orthonormal) | $d$ |
-| Random Blocking \& Parameter Sharing | `random_blocking` | $[\Phi(z)]_j = z_{g_j}$ (fixed random groups $g_j \in \{1,\ldots,d\}$) | $d$ |
-| Low-Rank Adaptation (LoRA) | `lora` | $\Phi(z) = \mathrm{vec}_{1:D}(A B)$ with $A \in \mathbb{R}^{M \times r}$, $B \in \mathbb{R}^{r \times M}$ unpacked from $z$, $M=\lceil\sqrt{D}\rceil$ | $2Mr$ where $M=\lceil\sqrt{D}\rceil$, $r$ from `--lora_rank` |
-| Full space (baseline) | `fullspace` or `none` | Identity: $x = z$ (after bounds clipping / additive anchor as for other methods) | $D$ |
+| Random projection | `random_projection` | `--subspace_dim` \(d\) | \(d\) |
+| Random blocking | `random_blocking` | `--subspace_dim` \(d\) | \(d\) |
+| Global LoRA | `lora` | `--lora_rank` \(r\) | \(2\lceil\sqrt{D}\rceil\, r\) |
+| Block LoRA variants | `lora_ib`, `lora_shared`, `lora_gated`, `lora_diag`, `lora_rank1` | `--lora_rank`, `--lora_blocks` | See [`docs/USAGE.md`](docs/USAGE.md) |
+| Full space | `fullspace` or `none` | — | \(D\) |
 
-The CLI accepts `none` as an alias for `fullspace` (stored internally as `fullspace`).
-
-#### LoRA details
-
-The $D$-dimensional vector is reshaped into an $M \times M$ matrix ($M = \lceil\sqrt{D}\rceil$). It is then parameterized by two low-rank factors $A \in \mathbb{R}^{M \times r}$ and $B \in \mathbb{R}^{r \times M}$:
-
-```
-x = (A @ B).flatten()[:D]
-```
-
-The search vector $z \in \mathbb{R}^{2Mr}$ concatenates the flattened $A$ and $B$. The rank $r$ is set via `--lora_rank`. The effective optimizer dimension is $2Mr$.
+Global LoRA treats \(x\) as the leading entries of an \(M \times M\) matrix (\(M=\lceil\sqrt{D}\rceil\)) with \(X = AB\), \(A \in \mathbb{R}^{M\times r}\), \(B \in \mathbb{R}^{r\times M}\). Block variants apply the same idea per contiguous segment of \(x\).
 
 ---
 
 ## Installation
 
-```bash
-pip install -r requirements.txt
-```
+`pip install -r requirements.txt`
 
-Dependencies: `numpy`, `scipy`, `pymoo`, `opfunu`, `wandb`.
+Core dependencies: `numpy`, `scipy`, `scikit-learn`, `pymoo`, `wandb`.
 
-## License
+For GPU/CPU matmul in random projection and global LoRA: `pip install torch`
 
-Original code in this repository is licensed under the **Apache License 2.0**; see [`LICENSE`](LICENSE). The bundled CEC-2013 LSGO code under `problems/cec2013lsgo/` remains under **GNU GPLv3**; see [`problems/cec2013lsgo/LICENSE`](problems/cec2013lsgo/LICENSE).
-
-> **Note on $D > 10^3$**: CEC-2013 LSGO was designed for $D = 10^3$. For larger $D$ the benchmark is extended by partitioning the vector into non-overlapping $10^3$-dimensional blocks, evaluating each, and averaging. This is an approximation for ablation studies.
+Use `--subspace_device cpu` if PyTorch or CUDA is unavailable.
 
 ---
 
-## Usage
+## Quick start
 
-### Single-phase (`scripts/main.py`)
+From the repository root:
 
-Classic approach: one subspace (or full space) for the entire NFE budget.
+**Random projection:** `python scripts/main.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method random_projection --subspace_dim 100 --optimizer de --pop_size 100 --max_nfe 3000000 --seed 0`
 
-```bash
-python scripts/main.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method random_projection --subspace_dim 100 --subspace_assignment absolute --optimizer de --pop_size 100 --init_pop uniform --de_mut_rate 0.8 --de_cr_rate 0.9 --max_nfe 3000000 --seed 0 --benchmark_seed 0
-```
+**Global LoRA (additive anchor):** `python scripts/main.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method lora --lora_rank 4 --subspace_assignment additive --subspace_device cpu --max_nfe 3000000 --seed 0`
 
-Full-$D$ baseline (no subspace reduction; EA operates directly in $\mathbb{R}^D$):
+**Dual-EA:** `python scripts/main_dual_ea.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method lora --lora_rank 4 --subspace_assignment additive --max_nfe 3000000 --seed 0 --benchmark_seed 0`
 
-```bash
-python scripts/main.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method fullspace --subspace_assignment absolute --optimizer de --pop_size 100 --max_nfe 3000000 --seed 0
-```
+**W&B sweep:** `wandb sweep configs/cec2013lsgo/d1000/dual_ea/lora/de_static.yaml` then `wandb agent <entity>/evo-subspace-opt/<sweep_id>`
 
-### Two-phase (`scripts/main_two_phase.py`)
+More examples (two-phase, block LoRA, sweep index): [`docs/USAGE.md`](docs/USAGE.md) (project-wide).  
+Benchmark package API: [`problems/cec2013lsgo/README.md`](problems/cec2013lsgo/README.md) and [usage guide](https://rkhosrowshahi.github.io/cec2013lsgo/usage/).
 
-Split the total budget across two stages:
+---
 
-1. **Phase 1 (full space, absolute)** — explore in $\mathbb{R}^D$ for `--full_nfe` evaluations ($x = z$).
-2. **Phase 2 (subspace)** — refine in a reduced subspace for `--sub_nfe` evaluations, warm-started from the phase-1 best solution. `--subspace_assignment` applies here only.
+## Run modes
 
-Constraint: **`full_nfe + sub_nfe = max_nfe`**. Specify both budgets, or pass only one and the other is derived from `--max_nfe`.
-
-Phase 2 requires a reduced subspace (`random_projection`, `random_blocking`, or `lora`; not `fullspace`).
-
-```bash
-python scripts/main_two_phase.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method random_projection --subspace_dim 100 --subspace_assignment additive --optimizer de --pop_size 100 --max_nfe 3000000 --full_nfe 1500000 --sub_nfe 1500000 --phase2_init from_phase1 --seed 0
-```
-
-**Phase-2 handoff** (`--subspace_assignment` for phase 2 only)
-
-| `--subspace_assignment` | Warm start |
+| Script | Description |
 |---|---|
-| `additive` | Sets $x_0$ to the phase-1 best; initializes the population near $z = 0$ (perturbations around that anchor). Recommended for LoRA (no exact `reduce`). |
-| `absolute` | Centers the population at `reduce(phase-1 best)` when the subspace supports it (RP, RB). |
+| [`scripts/main.py`](scripts/main.py) | One subspace (or full space) for the entire `--max_nfe` budget |
+| [`scripts/main_two_phase.py`](scripts/main_two_phase.py) | Full-space exploration, then subspace refinement (`--full_nfe` + `--sub_nfe` = `--max_nfe`) |
+| [`scripts/main_dual_ea.py`](scripts/main_dual_ea.py) | Coupled full-space and subspace EAs; exchange best each cycle (`--full_iters`, `--sub_iters`) |
 
-Extra arguments (in addition to all flags shared with `scripts/main.py`):
+Dual-EA and phase 2 require a **reduced** subspace (not `fullspace`). **Additive** subspace assignment is recommended when the subspace EA is anchored to a full-space best (especially LoRA, which has no `reduce()`).
 
-| Argument | Default | Description |
-|---|---|---|
-| `--full_nfe` | (derived) | NFE budget for phase 1 (full space) |
-| `--sub_nfe` | (derived) | NFE budget for phase 2 (subspace) |
-| `--phase2_init` | `from_phase1` | `from_phase1` (warm-start from phase-1 best) or `uniform` (standard sampling) |
+---
 
-W&B logs cumulative `nfe` across both phases and records `phase1_*` / `phase2_*` summary metrics.
+## Benchmark (CEC-2013 LSGO)
 
-### Dual-EA (`scripts/main_dual_ea.py`)
-
-Two EAs run in parallel and exchange solutions each cycle. Each cycle runs **`m` full-space generations then `k` subspace generations** (`--full_iters m`, `--sub_iters k`; default `1+1`):
-
-1. **Full-space EA (absolute)** — `m` generations in $\mathbb{R}^D$; take the best solution.
-2. **Subspace EA (additive)** — set anchor $x_0$ to that best, refresh the subspace population, then run `k` generations in the reduced subspace ($x = x_0 + f(z)$).
-3. **Handoff** — inject the subspace best into the full-space population by replacing the current full-space best when fitness improves (preserves weaker members as explorers).
-
-The shared NFE budget is `--max_nfe`. The subspace method must be reduced (`random_projection`, `random_blocking`, or `lora`; not `fullspace`). Additive subspace assignment is recommended.
-
-```bash
-python scripts/main_dual_ea.py --problem cec2013_lsgo_f1 --dim 1000 --subspace_method lora --lora_rank 4 --subspace_assignment additive --optimizer de --pop_size 100 --max_nfe 3000000 --seed 0 --benchmark_seed 0
-```
-
-Extra arguments (in addition to all flags shared with `scripts/main.py`):
-
-| Argument | Default | Description |
-|---|---|---|
-| `--full_iters` | `1` | Full-space generations per cycle ($m$ in $m+k$) |
-| `--sub_iters` | `1` | Subspace generations per cycle ($k$ in $m+k$) |
-| `--sub_anchor_update` | `reeval` | After updating $x_0$: `resample` (re-init near $z=0$) or `reeval` (keep $z$, re-evaluate under new $x_0$) |
-| `--fullspace_assignment` | `absolute` | Assignment mode for the full-space EA |
-
-W&B logs the same per-step keys as single-phase runs (`generation`, `best_fitness`, `mean_fitness`, `center_fitness`, `nfe`), plus dual-EA extras (`cycle`, `full_*`, `sub_*`).
-
-**W&B sweeps** (`configs/cec2013lsgo/d1000/dual_ea/`):
-
-| Config | Description |
+| Item | Detail |
 |---|---|
-| `lora/de_static.yaml` | LoRA ranks 1, 2, 4, 8; f1–f15; seeds 0–2 |
-| `random_projection/de_static.yaml` | Subspace $d \in \{10, 50\}$; f1–f5; seeds 0–2 |
-| `random_blocking/de_static.yaml` | Subspace $d \in \{10, 50\}$; f1–f5; seeds 0–2 |
-| `global/de_d32_additive.yaml` | All three subspace methods at $d = 32$; f1–f15; seeds 0–3 |
+| Problem IDs | `cec2013_lsgo_f1` … `cec2013_lsgo_f15` |
+| Wrapper | [`problems/lsgo.py`](problems/lsgo.py) → [`problems/cec2013lsgo/`](problems/cec2013lsgo/) |
+| **D = 1000** | Official competition data in `cdatafiles/` (same instance as the C++ reference) |
+| **D ≠ 1000** | Structural data generated from `--benchmark_seed` (scalable instances) |
+| Instance | `--benchmark_seed` fixes the LSGO instance; sweep `--seed` for EA/subspace repeats |
+| Docs | [`problems/cec2013lsgo/README.md`](problems/cec2013lsgo/README.md), [usage guide](https://rkhosrowshahi.github.io/cec2013lsgo/usage/) |
+| License | Bundled benchmark code is **GPLv3** ([`problems/cec2013lsgo/LICENSE`](problems/cec2013lsgo/LICENSE)); other project code is **Apache-2.0** ([`LICENSE`](LICENSE)) |
 
-```bash
-wandb sweep configs/cec2013lsgo/d1000/dual_ea/lora/de_static.yaml
-```
-
-### All arguments (single-phase)
-
-| Argument | Default | Description |
-|---|---|---|
-| `--problem` | `cec2013_lsgo_f1` | Benchmark problem id (must exist in `problems`; CEC-2013 LSGO uses `cec2013_lsgo_f1`-`cec2013_lsgo_f15`) |
-| `--dim` | `1000` | Objective search space dimensionality $D$ |
-| `--subspace_method` | `random_projection` | `random_projection`, `random_blocking`, `lora`, `fullspace`, or `none` (same as `fullspace`) |
-| `--subspace_dim` | (unset) | Required for RP/RB ($d$); ignored for LoRA (use `--lora_rank`), fullspace, and `none` |
-| `--lora_rank` | (required for LoRA) | LoRA rank $r$ |
-| `--subspace_assignment` | `absolute` | `absolute` or `additive` |
-| `--optimizer` | `de` | `de`, `pso`, `es`, `cmaes` |
-| `--pop_size` | `100` | Population size |
-| `--init_pop` | `uniform` | `uniform`, `gaussian`, `lhs` |
-| `--de_mut_rate` | `0.8` | DE mutation factor F |
-| `--de_cr_rate` | `0.9` | DE crossover rate CR |
-| `--de_evolving` | off | Enable PyMOO evolutionary adaptation of F and CR |
-| `--pso_w` | `0.9` | PSO inertia weight |
-| `--pso_c1` | `2.0` | PSO cognitive weight |
-| `--pso_c2` | `2.0` | PSO social weight |
-| `--pso_evolving` | off | Enable PyMOO adaptive PSO (dynamic w, c1, c2) |
-| `--es_sigma` | `0.3` | ES initial step-size sigma |
-| `--cmaes_sigma` | `0.5` | CMA-ES initial step-size sigma |
-| `--max_nfe` | `3000000` | NFE budget |
-| `--seed` | `0` | EA / subspace / NumPy RNG (not the LSGO instance) |
-| `--benchmark_seed` | `0` | LSGO structural data seed (shifts, rotations, weights) |
-| `--log_every` | `1` | Log every N generations |
-| `--wandb` | off | Enable W&B logging |
-| `--wandb_entity` | - | W&B entity |
-| `--wandb_project` | `evo-subspace-opt` | W&B project |
-| `--wandb_group` | - | W&B group; use `{dim}` in the string to inject objective search space $D$ (`--dim`) |
-| `--wandb_name` | - | Run name; omit, empty, or `__auto__` for deterministic name from problem / $D$ / subspace_assignment / subspace / optimizer / seed |
-
-### W&B logging
-
-Pass `--wandb` to enable. Every generation logs:
-
-| Metric | Description |
-|---|---|
-| `best_fitness` | Minimum fitness in the population |
-| `mean_fitness` | Mean fitness in the population |
-| `center_fitness` | Fitness at the population centroid |
-| `nfe` | Cumulative function evaluations |
+Forked from [dmolina/cec2013lsgo](https://github.com/dmolina/cec2013lsgo); see the benchmark README for API changes (pure-Python `LSGO2013`, F16–F25 removed).
 
 ---
 
@@ -189,45 +104,35 @@ Pass `--wandb` to enable. Every generation logs:
 
 ```
 .
-+-- scripts/
-|   +-- main.py           # Classic single-phase CLI
-|   +-- main_two_phase.py # Two-phase: full-space then subspace
-|   +-- main_dual_ea.py   # Dual-EA: alternating full-space and subspace
-+-- requirements.txt
-+-- subspace/
-|   +-- base.py           # Abstract Subspace class
-|   +-- random_projection.py
-|   +-- random_blocking.py
-|   +-- lora.py
-|   +-- fullspace.py      # Identity map; search_dim = D
-+-- configs/              # W&B sweep YAMLs (random_projection/, random_blocking/, lora/, fullspace/, ...)
-+-- problems/
-|   +-- lsgo.py           # CEC-2013 LSGO wrapper (opfunu back-end)
-+-- optimizers/
-|   +-- builder.py        # Algorithm factory (DE, PSO, ES, CMA-ES)
-|   +-- sampling.py       # Custom sampling (Gaussian)
-+-- utils/
-    +-- callback.py       # Per-generation logging callback
-    +-- problem.py        # PyMOO Problem wrapping subspace + LSGO
+├── scripts/
+│   ├── main.py              # Single-phase
+│   ├── main_two_phase.py    # Full-space then subspace
+│   └── main_dual_ea.py      # Alternating EAs
+├── subspace/                # RP, RB, LoRA variants, fullspace
+├── problems/
+│   ├── lsgo.py              # LSGO adapter for the pipeline
+│   └── cec2013lsgo/         # Vendored benchmark — see cec2013lsgo/README.md
+├── optimizers/              # DE, PSO, ES, CMA-ES (PyMOO)
+├── utils/                   # SubspaceProblem, logging callback
+├── configs/cec2013lsgo/     # W&B sweep YAMLs (d1000, d100000, …)
+├── results/                 # Aggregated tables / LaTeX (see results/README.md)
+├── docs/USAGE.md            # Project usage guide (if present)
+└── experiments/             # Optional landscape / analysis scripts
 ```
 
 ---
 
-## Example ablation sweep
+## Results
 
-```bash
-for method in random_projection random_blocking lora; do for d in 50 100 200 500; do python scripts/main.py --problem cec2013_lsgo_f7 --dim 1000 --subspace_method $method --subspace_dim $d --optimizer de --pop_size 100 --max_nfe 3000000 --seed 0 --wandb --wandb_project evo-subspace-opt --wandb_group "ablation-d" --wandb_name "${method}-d${d}"; done; done
-```
+After W&B runs, regenerate summary tables: `cd results` then `python generate_table.py --dim 1000`
 
-Note: for `lora`, pass `--lora_rank` instead of `--subspace_dim`. For a full-$D$ baseline, use `--subspace_method fullspace` (omit `--subspace_dim`) or run `wandb sweep configs/fullspace/de.yaml`.
+See [`results/README.md`](results/README.md) for layout and run-id lookup.
 
 ---
 
 ## Citing this repository
 
-On GitHub, use **Cite this repository** in the right-hand sidebar (generated from [`CITATION.cff`](CITATION.cff)). That file is the [Citation File Format](https://citation-file-format.github.io/) entry for this code.
-
-Sample BibTeX (adjust `year`, `version`, and `note` if you cite a specific release or commit):
+Use **Cite this repository** on GitHub ([`CITATION.cff`](CITATION.cff)), or:
 
 ```bibtex
 @misc{khosrowshahi_evo_subspace,
@@ -240,7 +145,7 @@ Sample BibTeX (adjust `year`, `version`, and `note` if you cite a specific relea
 }
 ```
 
-If you report results with **Block Differential Evolution**, cite the CEC paper as well:
+If you use **block differential evolution** ideas from related work:
 
 ```bibtex
 @inproceedings{khosrowshahi2023block,
@@ -258,8 +163,8 @@ If you report results with **Block Differential Evolution**, cite the CEC paper 
 
 ## References
 
-Khosrowshahli, R., & Rahnamayan, S. (2023). Block differential evolution. In *2023 IEEE Congress on Evolutionary Computation (CEC)* (pp. 1-8). IEEE. https://doi.org/10.1109/CEC53210.2023.10254079
+Khosrowshahli, R., & Rahnamayan, S. (2023). Block differential evolution. In *2023 IEEE Congress on Evolutionary Computation (CEC)* (pp. 1–8). IEEE. https://doi.org/10.1109/CEC53210.2023.10254079
 
-Li, X., Tang, K., Omidvar, M. N., Yang, Z., & Qin, K. (2013). *Benchmark functions for the CEC'2013 special session and competition on large scale global optimization* (Technical Report). Evolutionary Computation and Machine Learning Group, RMIT University. http://goanna.cs.rmit.edu.au/~xiaodong/cec13-lsgo/competition/
+Li, X., Tang, K., Omidvar, M. N., Yang, Z., & Qin, K. (2013). *Benchmark functions for the CEC'2013 special session and competition on large scale global optimization* (Technical Report). RMIT University. http://goanna.cs.rmit.edu.au/~xiaodong/cec13-lsgo/competition/
 
-Molina, D. (2018). *cec2013lsgo* [Computer software]. GitHub. https://github.com/dmolina/cec2013lsgo
+Molina, D. (2018). *cec2013lsgo* [Computer software]. https://github.com/dmolina/cec2013lsgo

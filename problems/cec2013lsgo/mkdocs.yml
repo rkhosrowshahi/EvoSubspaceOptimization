@@ -1,0 +1,68 @@
+# MkDocs site — deployed to GitHub Pages via .github/workflows/docs.yml
+# Live URL (after enabling Pages): https://<user>.github.io/cec2013lsgo/
+
+site_name: CEC-2013 LSGO
+site_description: Pure-Python CEC-2013 Large-Scale Global Optimization benchmark (F1–F15)
+site_url: https://rkhosrowshahi.github.io/cec2013lsgo/
+repo_url: https://github.com/rkhosrowshahi/cec2013lsgo
+repo_name: rkhosrowshahi/cec2013lsgo
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; CEC-2013 LSGO contributors — GPLv3
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - include-markdown
+
+nav:
+  - Home: index.md
+  - Usage: usage.md
+  - License: license.md
+  - Publishing: publishing.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rkhosrowshahi/cec2013lsgo

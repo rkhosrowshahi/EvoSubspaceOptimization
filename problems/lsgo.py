@@ -1,11 +1,7 @@
 """CEC-2013 LSGO problem wrapper used by the rest of the project.
 
-This thin wrapper delegates to the seed-based pure-Python implementation in
-``problems/cec2013lsgo/``, which was derived from the original C++ benchmark by
-Wenxiang Chen and adapted to:
-  - support arbitrary dimensionality D (not just D=1000)
-  - generate all structural data from an integer seed instead of fixed text files
-  - cover only F1-F15 (F16-F25 removed as they were hardcoded for specific D)
+Delegates to :class:`~cec2013lsgo.benchmarks.LSGO2013` in ``problems/cec2013lsgo/``.
+See ``problems/cec2013lsgo/README.md`` and ``docs/usage.md`` for the fork API and examples.
 """
 
 from __future__ import annotations
