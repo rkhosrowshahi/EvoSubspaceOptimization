@@ -1,4 +1,4 @@
-"""Regression tests for the pure-Python LSGO2013 implementation (D=1000, cdatafiles)."""
+"""Regression tests for the pure-Python LSGO2013 implementation."""
 
 import sys
 from pathlib import Path
@@ -13,8 +13,6 @@ if str(_ROOT) not in sys.path:
 from cec2013lsgo import LSGO2013, VALID_FUNC_IDS
 
 # Golden f(0) at D=1000 with bundled cdatafiles (pure-Python LSGO2013).
-# F1, F7, F8, F14 match the legacy C++ reference closely; a few functions
-# (e.g. F3, F6, F10) differ slightly from the old Cython tests at x=0.
 _EXPECTED_AT_ZERO = [
     209833896353.3435,
     47620.31161660615,
@@ -32,6 +30,11 @@ _EXPECTED_AT_ZERO = [
     4.4079796812096246e18,
     2393892336615502.0,
 ]
+
+# Seed-based scalable dimensions (not D=1000 official cdatafiles).
+SCALABLE_DIMS = [2, 100, 10_000, 100_000, 1_000_000]
+
+_FUNC_IDS = sorted(VALID_FUNC_IDS)
 
 
 @pytest.mark.parametrize(
@@ -59,8 +62,40 @@ def test_seed_based_does_not_use_cdatafiles() -> None:
     assert bench.evaluate(np.zeros(500)) != pytest.approx(_EXPECTED_AT_ZERO[0])
 
 
-def test_evaluate_wrong_length_raises_or_mismatches() -> None:
-    """Short vectors are not validated; callers must pass shape (D,)."""
-    bench = LSGO2013(func_id="cec2013_lsgo_f1", D=1000, seed=0)
-    # NumPy broadcasting may not raise; document expected length instead.
-    assert bench.D == 1000
+@pytest.mark.parametrize("D", SCALABLE_DIMS)
+@pytest.mark.parametrize("func_id", _FUNC_IDS)
+def test_scalable_dimension_evaluate_finite(func_id: str, D: int) -> None:
+    """F1-F15 at D in {2, 100, 10k, 100k, 1M}: seed-based, finite fitness."""
+    bench = LSGO2013(func_id=func_id, D=D, seed=42)
+    assert not bench.using_cdatafiles
+    assert bench.D == D
+    x = np.random.default_rng(0).uniform(bench.lb, bench.ub, size=D)
+    fitness = bench.evaluate(x)
+    assert np.isfinite(fitness)
+    assert fitness >= 0.0
+
+
+@pytest.mark.parametrize("D", SCALABLE_DIMS)
+def test_scalable_dimension_reproducible_with_seed(D: int) -> None:
+    """Same seed and x give the same fitness (F1 smoke at each D)."""
+    a = LSGO2013("cec2013_lsgo_f1", D=D, seed=99)
+    b = LSGO2013("cec2013_lsgo_f1", D=D, seed=99)
+    x = np.full(D, 0.5)
+    assert a.evaluate(x) == b.evaluate(x)
+
+
+@pytest.mark.parametrize("D", [2, 100])
+def test_small_dimension_bounds_shape(D: int) -> None:
+    bench = LSGO2013("cec2013_lsgo_f4", D=D, seed=0)
+    assert bench.lb_array.shape == (D,)
+    assert bench.ub_array.shape == (D,)
+    assert np.all(bench.lb_array == bench.lb)
+    assert np.all(bench.ub_array == bench.ub)
+
+
+def test_dimension_2_separable_shift_length() -> None:
+    bench = LSGO2013("cec2013_lsgo_f1", D=2, seed=0)
+    z = np.array([1.0, 2.0]) - bench._xopt
+    assert z.shape == (2,)
+    assert bench.evaluate(np.array([1.0, 2.0])) >= 0.0
+
