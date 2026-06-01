@@ -14,9 +14,16 @@ After deployment is configured:
 
 1. Push this repository to GitHub (repository root = this `cec2013lsgo` folder).
 2. Open **Settings → Pages**.
-3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Under **Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch”).
+4. Save, then run **Actions → Deploy documentation → Run workflow** (or push to `main`).
 
 The workflow `.github/workflows/docs.yml` runs on every push to `main`.
+
+### If deploy fails but “Build site” succeeds
+
+The **deploy** job needs GitHub Pages enabled with **GitHub Actions** as the source. If Pages was never turned on, or is still set to deploy from `main` / `/docs`, the **Deploy to GitHub Pages** step fails and you may also see a separate **pages build and deployment** workflow fail.
+
+Fix: **Settings → Pages → Source → GitHub Actions**, then re-run **Deploy documentation**.
 
 ## Build locally
 

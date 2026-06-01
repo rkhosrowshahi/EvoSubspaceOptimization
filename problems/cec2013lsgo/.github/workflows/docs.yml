@@ -1,5 +1,5 @@
 # Build MkDocs site and deploy to GitHub Pages.
-# Enable once: Repository Settings → Pages → Source: GitHub Actions
+# One-time: Settings → Pages → Build and deployment → Source: GitHub Actions
 
 name: Deploy documentation
 
@@ -24,6 +24,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -33,7 +36,7 @@ jobs:
         run: pip install -r requirements-docs.txt
 
       - name: Build site
-        run: mkdocs build
+        run: mkdocs build --strict
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
