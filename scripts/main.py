@@ -539,8 +539,8 @@ def main(argv: list[str] | None = None) -> None:
         log_every=args.log_every,
     )
 
-    # -- Build algorithm --
-    algorithm = build_algorithm(args)
+    # -- Build optimizer --
+    optim = build_algorithm(args)
 
     # -- Termination --
     termination = get_termination("n_eval", args.max_nfe)
@@ -549,7 +549,7 @@ def main(argv: list[str] | None = None) -> None:
     t0 = time.perf_counter()
     result = minimize(
         problem,
-        algorithm,
+        optim,
         termination,
         seed=args.seed,
         callback=callback,

@@ -3,6 +3,9 @@ scipy>=1.10.0
 scikit-learn>=1.3.0
 pymoo>=0.6.0
 wandb>=0.15.0
+evosax>=0.2.0
+jax>=0.4.0
+optax>=0.2.0
 
 # Optional: GPU/CPU torch matmul for --subspace_device (random_projection, lora)
 # pip install torch

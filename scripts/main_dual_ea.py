@@ -47,7 +47,7 @@ from scripts.main import (
     subspace_method_is_lora,
     validate_lora_blocks,
 )
-from scripts.main_two_phase import CenteredSampling, _set_algorithm_sampling
+from scripts.main_two_phase import CenteredSampling, _phase2_search_center, _set_optim_sampling
 from subspace import build_subspace
 from subspace.base import Subspace
 from problems import LSGOProblem
@@ -89,11 +89,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--sub_anchor_update",
         type=str,
         default="reeval",
-        choices=["resample", "reeval"],
+        choices=["resample", "reeval", "reeval_with_zero_elite"],
         help=(
             "After updating the subspace anchor x0 from the full-space best: "
             "'resample' re-initializes the subspace population near z=0; "
-            "'reeval' keeps current z and re-evaluates fitness under the new x0."
+            "'reeval' keeps current z and re-evaluates fitness under the new x0; "
+            "'reeval_with_zero_elite' does the same but forces the anchor-preserving "
+            "center vector into the population."
         ),
     )
     dual.add_argument(
@@ -111,25 +113,31 @@ def build_parser() -> argparse.ArgumentParser:
 # Population / anchor helpers
 # ---------------------------------------------------------------------------
 
-def _total_nfe(full_algo, sub_algo) -> int:
-    return int(full_algo.evaluator.n_eval + sub_algo.evaluator.n_eval)
+def _sub_pop_size(args: argparse.Namespace) -> int:
+    """Population size for the subspace EA (defaults to ``--pop_size``)."""
+    sub = getattr(args, "sub_pop_size", None)
+    return args.pop_size if sub is None else sub
 
 
-def _budget_left(full_algo, sub_algo, max_nfe: int) -> int:
-    return max_nfe - _total_nfe(full_algo, sub_algo)
+def _total_nfe(full_optim, sub_optim) -> int:
+    return int(full_optim.evaluator.n_eval + sub_optim.evaluator.n_eval)
 
 
-def _best_fullspace_solution(algo, subspace) -> tuple[np.ndarray, float]:
-    F = algo.pop.get("F").flatten()
-    X = algo.pop.get("X")
+def _budget_left(full_optim, sub_optim, max_nfe: int) -> int:
+    return max_nfe - _total_nfe(full_optim, sub_optim)
+
+
+def _best_fullspace_solution(optim, subspace) -> tuple[np.ndarray, float]:
+    F = optim.pop.get("F").flatten()
+    X = optim.pop.get("X")
     best_idx = int(np.argmin(F))
     x = np.asarray(subspace.expand(X[best_idx]), dtype=float).reshape(-1)
     return x, float(F[best_idx])
 
 
-def _best_subspace_solution(algo, subspace) -> tuple[np.ndarray, float, np.ndarray]:
-    F = algo.pop.get("F").flatten()
-    X = algo.pop.get("X")
+def _best_subspace_solution(optim, subspace) -> tuple[np.ndarray, float, np.ndarray]:
+    F = optim.pop.get("F").flatten()
+    X = optim.pop.get("X")
     best_idx = int(np.argmin(F))
     z = np.asarray(X[best_idx], dtype=float).reshape(-1)
     x = np.asarray(subspace.expand(z), dtype=float).reshape(-1)
@@ -151,7 +159,7 @@ def _evaluate_batch(problem: SubspaceProblem, X: np.ndarray) -> np.ndarray:
 
 
 def _inject_into_fullspace(
-    full_algo,
+    full_optim,
     full_problem: SubspaceProblem,
     x: np.ndarray,
     f_candidate: float,
@@ -161,7 +169,7 @@ def _inject_into_fullspace(
     Injection is skipped when ``f_candidate >= min(F_full)``. Returns
     ``(fitness, injected)``; fitness is ``None`` when skipped.
     """
-    pop = full_algo.pop
+    pop = full_optim.pop
     F = pop.get("F").flatten()
     f_full_best = float(np.min(F))
     if f_candidate >= f_full_best:
@@ -177,52 +185,68 @@ def _inject_into_fullspace(
     X[worst_idx] = x_clip
     F_new = F.copy()
     F_new[worst_idx] = f_new
-    full_algo.pop = _population_from_arrays(X, F_new.reshape(-1, 1))
-    full_algo.evaluator.n_eval += 1
+    full_optim.pop = _population_from_arrays(X, F_new.reshape(-1, 1))
+    full_optim.evaluator.n_eval += 1
     return f_new, True
 
 
 def _refresh_subspace_after_anchor(
-    sub_algo,
+    sub_optim,
     sub_problem: SubspaceProblem,
     subspace,
     args: argparse.Namespace,
     *,
     mode: str,
+    best_x: np.ndarray,
 ) -> int:
-    """Apply anchor update side effects on the subspace population; return NFE used."""
-    n_var = subspace.search_dim
-    pop_size = args.pop_size
+    """Apply anchor-update side effects on the subspace optimizer; return NFE used.
+
+    Transition center in z-space:
+    - **additive** (``x = x0 + f(z)``): ``z = 0`` because ``x0`` is already set to ``best_x``.
+    - **absolute** (``x = f(z)``): ``z = reduce(best_x)`` when supported, else ``z = 0``.
+    """
+    center_z = _phase2_search_center(subspace, best_x)
+    if center_z is None:
+        center_z = np.zeros(subspace.search_dim, dtype=float)
+
+    if getattr(sub_optim, "is_distribution_based", False):
+        n_eval = sub_optim.refresh_after_anchor(
+            sub_problem, mode=mode, center_z=center_z
+        )
+        sub_optim.evaluator.n_eval += n_eval
+        return n_eval
+
+    pop_size = _sub_pop_size(args)
 
     if mode == "resample":
         sampling = CenteredSampling(
-            center=np.zeros(n_var, dtype=float),
+            center=center_z,
             method=args.init_pop,
             scale=args.pop_sigma,
         )
         X = sampling._do(sub_problem, pop_size)
         F = _evaluate_batch(sub_problem, X)
         n_eval = pop_size
-    elif mode == "reeval":
-        pop = sub_algo.pop
+    elif mode in ("reeval", "reeval_with_zero_elite"):
+        pop = sub_optim.pop
         if pop is None:
             sampling = CenteredSampling(
-                center=np.zeros(n_var, dtype=float),
+                center=center_z,
                 method=args.init_pop,
                 scale=args.pop_sigma,
             )
             X = sampling._do(sub_problem, pop_size)
-            F = _evaluate_batch(sub_problem, X)
-            n_eval = pop_size
         else:
-            X = pop.get("X")
-            F = _evaluate_batch(sub_problem, X)
-            n_eval = len(X)
+            X = np.asarray(pop.get("X"), dtype=float).copy()
+        if mode == "reeval_with_zero_elite":
+            X[0] = center_z
+        F = _evaluate_batch(sub_problem, X)
+        n_eval = len(X)
     else:
         raise ValueError(f"Unknown sub_anchor_update mode {mode!r}")
 
-    sub_algo.pop = _population_from_arrays(X, F)
-    sub_algo.evaluator.n_eval += n_eval
+    sub_optim.pop = _population_from_arrays(X, F)
+    sub_optim.evaluator.n_eval += n_eval
     return n_eval
 
 
@@ -238,7 +262,7 @@ class DualEALoggingCallback(LoggingCallback):
 
     ``best_fitness`` is the minimum over both EA populations. ``nfe`` is the
     shared budget across both evaluators. Dual-specific keys ``cycle``,
-    ``full_*``, and ``sub_*`` are also logged.
+    ``full_*``, ``sub_*``, ``full_improve_count``, and ``sub_improve_count`` are also logged.
     """
 
     def __init__(
@@ -259,17 +283,17 @@ class DualEALoggingCallback(LoggingCallback):
         self._sub_subspace = sub_subspace
         self._cycle = 0
 
-    def notify(self, algorithm, **kwargs) -> None:
+    def notify(self, optim, **kwargs) -> None:
         self._cycle += 1
         if self._cycle % self._log_every != 0:
             return
 
-        full_algo = kwargs["full_algo"]
-        sub_algo = kwargs["sub_algo"]
-        nfe = _total_nfe(full_algo, sub_algo)
+        full_optim = kwargs["full_optim"]
+        sub_optim = kwargs["sub_optim"]
+        nfe = _total_nfe(full_optim, sub_optim)
 
-        full_pop = full_algo.pop
-        sub_pop = sub_algo.pop
+        full_pop = full_optim.pop
+        sub_pop = sub_optim.pop
         full_F = full_pop.get("F").flatten()
         sub_F = sub_pop.get("F").flatten()
         full_X = full_pop.get("X")
@@ -278,7 +302,7 @@ class DualEALoggingCallback(LoggingCallback):
         best_fitness = float(min(full_F.min(), sub_F.min()))
         mean_fitness = float(full_F.mean())
         center_fitness = self._compute_center_fitness(full_X)
-        generation = int(full_algo.n_gen)
+        generation = int(full_optim.n_gen)
 
         metrics = {
             "generation": generation,
@@ -293,6 +317,8 @@ class DualEALoggingCallback(LoggingCallback):
             "sub_best_fitness": float(sub_F.min()),
             "sub_mean_fitness": float(sub_F.mean()),
             "sub_center_fitness": self._center_fitness_for(sub_X, self._sub_subspace),
+            "full_improve_count": int(kwargs.get("full_improve_count", 0)),
+            "sub_improve_count": int(kwargs.get("sub_improve_count", 0)),
         }
         if generation % 1000 == 0:
             self._log_console(metrics)
@@ -366,32 +392,37 @@ def init_wandb_dual_ea(args: argparse.Namespace) -> None:
     )
 
 
-def _refresh_subspace_cost(sub_algo, args: argparse.Namespace) -> int:
-    """NFE cost of refreshing the subspace population after an anchor update."""
+def _refresh_subspace_cost(sub_optim, args: argparse.Namespace, subspace) -> int:
+    """NFE cost of refreshing the subspace optimizer after an anchor update."""
+    if getattr(sub_optim, "is_distribution_based", False):
+        return sub_optim.anchor_refresh_cost(args.sub_anchor_update)
+    pop_size = _sub_pop_size(args)
     if args.sub_anchor_update == "resample":
-        return args.pop_size
-    if sub_algo.pop is None:
-        return args.pop_size
-    return len(sub_algo.pop)
+        return pop_size
+    if subspace.subspace_assignment == Subspace.ADDITIVE:
+        return pop_size
+    if sub_optim.pop is None:
+        return pop_size
+    return len(sub_optim.pop.get("X"))
 
 
 def _advance_generations(
-    algo,
+    optim,
     *,
     n_gens: int,
     pop_size: int,
-    full_algo,
-    sub_algo,
+    full_optim,
+    sub_optim,
     max_nfe: int,
 ) -> int:
     """Run up to ``n_gens`` optimizer steps; return the number completed."""
     completed = 0
     for _ in range(n_gens):
-        if _budget_left(full_algo, sub_algo, max_nfe) < pop_size:
+        if _budget_left(full_optim, sub_optim, max_nfe) < pop_size:
             break
-        if not algo.has_next():
+        if not optim.has_next():
             break
-        algo.next()
+        optim.next()
         completed += 1
     return completed
 
@@ -413,8 +444,8 @@ def _track_best(
 
 def run_dual_ea(
     *,
-    full_algo,
-    sub_algo,
+    full_optim,
+    sub_optim,
     full_problem: SubspaceProblem,
     sub_problem: SubspaceProblem,
     full_subspace,
@@ -422,95 +453,114 @@ def run_dual_ea(
     args: argparse.Namespace,
     max_nfe: int,
     callback: DualEALoggingCallback | None = None,
-) -> tuple[np.ndarray, float, int, int]:
+) -> tuple[np.ndarray, float, int, int, int, int]:
     """Run alternating cycles until the shared NFE budget is exhausted.
 
-    Returns ``(best_x, best_fitness, n_cycles, total_nfe)``.
+    Returns ``(best_x, best_fitness, n_cycles, total_nfe, full_improve_count,
+    sub_improve_count)``.
     """
     global_best_f = float("inf")
     global_best_x: np.ndarray | None = None
     n_cycles = 0
+    full_improve_count = 0
+    sub_improve_count = 0
 
-    while full_algo.has_next() and _budget_left(full_algo, sub_algo, max_nfe) > 0:
+    while full_optim.has_next() and _budget_left(full_optim, sub_optim, max_nfe) > 0:
         n_cycles += 1
+        global_best_at_cycle_start = global_best_f
 
         # ---- Step 1: m full-space generations ----
-        if _budget_left(full_algo, sub_algo, max_nfe) < args.pop_size:
+        if _budget_left(full_optim, sub_optim, max_nfe) < args.pop_size:
             break
         full_ran = _advance_generations(
-            full_algo,
+            full_optim,
             n_gens=args.full_iters,
             pop_size=args.pop_size,
-            full_algo=full_algo,
-            sub_algo=sub_algo,
+            full_optim=full_optim,
+            sub_optim=sub_optim,
             max_nfe=max_nfe,
         )
         if full_ran == 0:
             break
 
-        best_x_full, f_full = _best_fullspace_solution(full_algo, full_subspace)
+        best_x_full, f_full = _best_fullspace_solution(full_optim, full_subspace)
         global_best_x, global_best_f = _track_best(
             best_x_full, f_full, global_best_x, global_best_f
         )
+        full_improved_cycle = global_best_f < global_best_at_cycle_start
+        if full_improved_cycle:
+            full_improve_count += 1
+        global_best_after_full = global_best_f
 
         # ---- Step 2: anchor update + k subspace generations ----
         sub_subspace.set_x0(best_x_full)
-        refresh_cost = _refresh_subspace_cost(sub_algo, args)
-        if _budget_left(full_algo, sub_algo, max_nfe) < refresh_cost:
+        refresh_cost = _refresh_subspace_cost(sub_optim, args, sub_subspace)
+        if _budget_left(full_optim, sub_optim, max_nfe) < refresh_cost:
             break
         _refresh_subspace_after_anchor(
-            sub_algo,
+            sub_optim,
             sub_problem,
             sub_subspace,
             args,
             mode=args.sub_anchor_update,
+            best_x=best_x_full,
         )
 
-        if _budget_left(full_algo, sub_algo, max_nfe) < args.pop_size:
+        sub_pop = _sub_pop_size(args)
+        if _budget_left(full_optim, sub_optim, max_nfe) < sub_pop:
             break
         sub_ran = _advance_generations(
-            sub_algo,
+            sub_optim,
             n_gens=args.sub_iters,
-            pop_size=args.pop_size,
-            full_algo=full_algo,
-            sub_algo=sub_algo,
+            pop_size=sub_pop,
+            full_optim=full_optim,
+            sub_optim=sub_optim,
             max_nfe=max_nfe,
         )
         if sub_ran == 0:
             break
 
-        best_x_sub, f_sub, _ = _best_subspace_solution(sub_algo, sub_subspace)
+        global_best_before_sub = global_best_after_full
+        best_x_sub, f_sub, _ = _best_subspace_solution(sub_optim, sub_subspace)
         global_best_x, global_best_f = _track_best(
             best_x_sub, f_sub, global_best_x, global_best_f
         )
 
         # ---- Step 3: inject subspace best into full-space population ----
-        if _budget_left(full_algo, sub_algo, max_nfe) >= 1:
+        if _budget_left(full_optim, sub_optim, max_nfe) >= 1:
             f_inj, injected = _inject_into_fullspace(
-                full_algo, full_problem, best_x_sub, f_sub
+                full_optim, full_problem, best_x_sub, f_sub
             )
             if injected and f_inj is not None:
                 global_best_x, global_best_f = _track_best(
                     best_x_sub, f_inj, global_best_x, global_best_f
                 )
 
+        sub_improved_cycle = global_best_f < global_best_before_sub
+        if sub_improved_cycle:
+            sub_improve_count += 1
+
         if callback is not None:
             callback.notify(
-                full_algo,
-                full_algo=full_algo,
-                sub_algo=sub_algo,
+                full_optim,
+                full_optim=full_optim,
+                sub_optim=sub_optim,
+                full_improve_count=full_improve_count,
+                sub_improve_count=sub_improve_count,
             )
 
     if global_best_x is None:
         global_best_x, global_best_f = _best_fullspace_solution(
-            full_algo, full_subspace
+            full_optim, full_subspace
         )
 
     return (
         global_best_x,
         global_best_f,
         n_cycles,
-        _total_nfe(full_algo, sub_algo),
+        _total_nfe(full_optim, sub_optim),
+        full_improve_count,
+        sub_improve_count,
     )
 
 
@@ -623,13 +673,13 @@ def main(argv: list[str] | None = None) -> None:
     )
     sub_problem = SubspaceProblem(lsgo=lsgo, subspace=sub_subspace)
 
-    full_algo = build_algorithm(args)
-    sub_algo = build_algorithm(args)
+    full_optim = build_algorithm(args)
+    sub_optim = build_algorithm(args)
 
     # Subspace EA starts with a standard initial population; anchor x0 is set
     # from the full-space best before the first subspace step each cycle.
-    _set_algorithm_sampling(
-        sub_algo,
+    _set_optim_sampling(
+        sub_optim,
         CenteredSampling(
             center=np.zeros(sub_subspace.search_dim, dtype=float),
             method=args.init_pop,
@@ -641,13 +691,13 @@ def main(argv: list[str] | None = None) -> None:
 
     # Generous per-algorithm gen cap; the shared NFE budget stops the outer loop.
     gen_cap = max(1, args.max_nfe // max(1, args.pop_size) + 2)
-    full_algo.setup(
+    full_optim.setup(
         full_problem,
         termination=get_termination("n_gen", gen_cap),
         seed=args.seed,
         verbose=False,
     )
-    sub_algo.setup(
+    sub_optim.setup(
         sub_problem,
         termination=get_termination("n_gen", gen_cap),
         seed=args.seed + 1,
@@ -663,9 +713,9 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     t0 = time.perf_counter()
-    best_x, best_f, n_cycles, total_nfe = run_dual_ea(
-        full_algo=full_algo,
-        sub_algo=sub_algo,
+    best_x, best_f, n_cycles, total_nfe, full_improve_count, sub_improve_count = run_dual_ea(
+        full_optim=full_optim,
+        sub_optim=sub_optim,
         full_problem=full_problem,
         sub_problem=sub_problem,
         full_subspace=full_subspace,
@@ -679,6 +729,8 @@ def main(argv: list[str] | None = None) -> None:
     print("=" * 70)
     print(f"Dual-EA optimization finished in {elapsed:.2f}s")
     print(f"  Cycles completed  : {n_cycles}")
+    print(f"  Full improved best: {full_improve_count} cycles")
+    print(f"  Sub improved best : {sub_improve_count} cycles")
     print(f"  Best fitness      : {best_f:.6e}")
     print(f"  Total NFE         : {total_nfe}")
     print(f"  ||best_x||_2      : {float(np.linalg.norm(best_x)):.4f}")
@@ -693,6 +745,8 @@ def main(argv: list[str] | None = None) -> None:
         wandb.summary["best_fitness"] = best_f
         wandb.summary["total_nfe"] = total_nfe
         wandb.summary["n_cycles"] = n_cycles
+        wandb.summary["full_improve_count"] = full_improve_count
+        wandb.summary["sub_improve_count"] = sub_improve_count
         wandb.summary["elapsed_seconds"] = elapsed
         wandb.finish()
 

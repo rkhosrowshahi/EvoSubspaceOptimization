@@ -209,15 +209,15 @@ class TwoPhaseLoggingCallback(LoggingCallback):
         self._nfe_offset = nfe_offset
         self._phase = phase
 
-    def notify(self, algorithm, **kwargs) -> None:
-        gen: int = algorithm.n_gen
+    def notify(self, optim, **kwargs) -> None:
+        gen: int = optim.n_gen
         if gen % self._log_every != 0:
             return
 
-        pop = algorithm.pop
+        pop = optim.pop
         F: np.ndarray = pop.get("F").flatten()
         X: np.ndarray = pop.get("X")
-        nfe: int = algorithm.evaluator.n_eval + self._nfe_offset
+        nfe: int = optim.evaluator.n_eval + self._nfe_offset
 
         best_fitness = float(F.min())
         mean_fitness = float(F.mean())
@@ -257,15 +257,15 @@ def _phase2_search_center(subspace, best_x: np.ndarray) -> np.ndarray | None:
         return None
 
 
-def _set_algorithm_sampling(algorithm, sampling: Sampling) -> None:
+def _set_optim_sampling(optim, sampling: Sampling) -> None:
     """Attach sampling for initial population creation.
 
     PyMOO genetic algorithms copy ``sampling`` into ``Initialization`` at
-    construction time; assigning ``algorithm.sampling`` alone does not affect
+    construction time; assigning ``optim.sampling`` alone does not affect
     the population actually evaluated in generation 1.
     """
-    algorithm.sampling = sampling
-    initialization = getattr(algorithm, "initialization", None)
+    optim.sampling = sampling
+    initialization = getattr(optim, "initialization", None)
     if initialization is not None:
         initialization.sampling = sampling
 
@@ -290,10 +290,10 @@ def _run_phase(
         phase=label,
     )
 
-    algorithm = build_algorithm(args)
+    optim = build_algorithm(args)
     if warm_center is not None:
-        _set_algorithm_sampling(
-            algorithm,
+        _set_optim_sampling(
+            optim,
             CenteredSampling(
                 center=warm_center,
                 method=args.init_pop,
@@ -313,7 +313,7 @@ def _run_phase(
     t0 = time.perf_counter()
     result = minimize(
         problem,
-        algorithm,
+        optim,
         termination,
         seed=args.seed,
         callback=callback,

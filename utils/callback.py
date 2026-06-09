@@ -50,15 +50,15 @@ class LoggingCallback(Callback):
     # PyMOO hook
     # ------------------------------------------------------------------
 
-    def notify(self, algorithm, **kwargs) -> None:
-        gen: int = algorithm.n_gen
+    def notify(self, optim, **kwargs) -> None:
+        gen: int = optim.n_gen
         if gen % self._log_every != 0:
             return
 
-        pop = algorithm.pop
+        pop = optim.pop
         F: np.ndarray = pop.get("F").flatten()  # (pop_size,)
         X: np.ndarray = pop.get("X")            # (pop_size, search_dim)
-        nfe: int = algorithm.evaluator.n_eval
+        nfe: int = optim.evaluator.n_eval
 
         best_fitness = float(F.min())
         mean_fitness = float(F.mean())
