@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 from pymoo.core.problem import Problem
 
-from problems.lsgo import LSGOProblem
-from subspace.base import Subspace
+from evo_subspace.problems import LSGOProblem
+from evo_subspace.subspaces.base import Subspace
 
 
 class SubspaceProblem(Problem):

@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evo-subspace-optimization"
+version = "0.1.0"
+description = "Evolutionary subspace optimization for large scale global optimization benchmarks."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Rasa Khosrowshahli" },
+]
+dependencies = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "scikit-learn>=1.3.0",
+    "pymoo>=0.6.0",
+    "opfunu>=1.0.0",
+    "wandb>=0.15.0",
+]
+
+[project.optional-dependencies]
+torch = ["torch"]
+test = ["pytest"]
+
+[project.scripts]
+evo-subspace = "evo_subspace.cli.main:main"
+evo-subspace-two-phase = "evo_subspace.cli.main_two_phase:main"
+evo-subspace-dual-ea = "evo_subspace.cli.main_dual_ea:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"evo_subspace.problems.cec2013lsgo.cec2013lsgo" = [
+    "cdatafiles/*.txt",
+    "*.h",
+    "*.cpp",
+    "*.pyx",
+    "README.rst",
+    "Makefile",
+]
+"evo_subspace.problems.gnbg" = ["*.mat"]

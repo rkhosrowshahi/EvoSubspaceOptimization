@@ -16,20 +16,16 @@ from collections.abc import Callable
 import argparse
 from dataclasses import dataclass, field
 from pathlib import Path
-import sys
 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 import numpy as np
 
-# Allow running as: python experiments/reverse_map_2d_to_3d_coverage.py
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-from subspace.lora import LoRA
-from subspace.random_blocking import RandomBlocking
-from subspace.random_projection import RandomProjection
+from evo_subspace.subspaces.lora import LoRA
+from evo_subspace.subspaces.random_blocking import RandomBlocking
+from evo_subspace.subspaces.random_projection import RandomProjection
 
 
 @dataclass
@@ -569,7 +565,7 @@ def main() -> None:
     z4_lora_plot = rng_plot.uniform(args.low, args.high, size=(args.plot_samples, lora.search_dim))
     x_rp_plot = rp_mapper(z2_plot)
     x_rb_plot = rb_mapper(z2_plot)
-    plot_path = REPO_ROOT / args.plot_path
+    plot_path = PROJECT_ROOT / args.plot_path
     save_joint_figure(
         z2_plot=z2_plot,
         x_rp_plot=x_rp_plot,

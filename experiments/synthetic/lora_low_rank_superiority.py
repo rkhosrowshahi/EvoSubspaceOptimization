@@ -12,16 +12,13 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass
@@ -729,8 +726,8 @@ def main() -> None:
         init_scale=args.init_scale,
     )
 
-    table_dir = REPO_ROOT / args.table_dir
-    plot_base = REPO_ROOT / args.plot_path
+    table_dir = PROJECT_ROOT / args.table_dir
+    plot_base = PROJECT_ROOT / args.plot_path
     saved_tables: list[Path] = []
     saved_figures: list[Path] = []
 

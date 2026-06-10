@@ -1,22 +1,18 @@
 """CEC-2013 LSGO problem wrapper used by the rest of the project.
 
-Delegates to :class:`~cec2013lsgo.benchmarks.LSGO2013` in ``problems/cec2013lsgo/``.
-See ``problems/cec2013lsgo/README.md`` and ``docs/usage.md`` for the fork API and examples.
+This thin wrapper delegates to the seed-based pure-Python implementation in
+``evo_subspace.problems.cec2013lsgo``, which was derived from the original C++ benchmark by
+Wenxiang Chen and adapted to:
+  - support arbitrary dimensionality D (not just D=1000)
+  - generate all structural data from an integer seed instead of fixed text files
+  - cover only F1-F15 (F16-F25 removed as they were hardcoded for specific D)
 """
 
 from __future__ import annotations
 
-import sys
-import pathlib
-
-# Make the local cec2013lsgo package importable regardless of install state.
-_HERE = pathlib.Path(__file__).parent
-_CEC_PKG = _HERE / "cec2013lsgo"
-if str(_CEC_PKG) not in sys.path:
-    sys.path.insert(0, str(_CEC_PKG))
-
 import numpy as np
-from cec2013lsgo import LSGO2013, VALID_FUNC_IDS
+
+from .cec2013lsgo.cec2013lsgo import LSGO2013, VALID_FUNC_IDS
 
 
 class LSGOProblem:
