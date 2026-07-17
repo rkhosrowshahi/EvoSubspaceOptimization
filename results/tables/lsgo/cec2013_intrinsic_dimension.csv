@@ -1,0 +1,16 @@
+func_id,func_type,n_groups,nonsep_D,sep_D,eff_D,ambient_dim,intrinsic_dim,intrinsic_dim_elbow,capture_threshold,capture_at_full_d
+cec2013_lsgo_f1,sep,,,,,1000,807,69,0.9,1.0
+cec2013_lsgo_f2,sep,,,,,1000,814,97,0.9,1.0
+cec2013_lsgo_f3,sep,,,,,1000,8,2,0.9,1.0
+cec2013_lsgo_f4,partial,7,300,700,,1000,807,77,0.9,1.0
+cec2013_lsgo_f5,partial,7,300,700,,1000,859,152,0.9,1.0
+cec2013_lsgo_f6,partial,7,300,700,,1000,13,12,0.9,1.0
+cec2013_lsgo_f7,partial,7,300,700,,1000,731,607,0.9,1.0
+cec2013_lsgo_f8,full,20,,,,1000,783,129,0.9,1.0
+cec2013_lsgo_f9,full,20,,,,1000,941,324,0.9,1.0
+cec2013_lsgo_f10,full,20,,,,1000,17,7,0.9,1.0
+cec2013_lsgo_f11,full,20,,,,1000,931,225,0.9,1.0
+cec2013_lsgo_f12,single,,,,,1000,800,105,0.9,1.0
+cec2013_lsgo_f13,conform,20,,,905,1000,910,739,0.9,1.0
+cec2013_lsgo_f14,conflict,20,,,905,1000,597,502,0.9,1.0
+cec2013_lsgo_f15,single,,,,,1000,941,294,0.9,1.0

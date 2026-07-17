@@ -68,10 +68,24 @@ def build_algorithm(args):  # args: argparse.Namespace
     if optimizer == "es":
         return _build_es(args, sampling)
     if optimizer == "cmaes":
-        return _build_cmaes(args, sampling)
+        raise ValueError(
+            "CMA-ES is implemented via evosax; main() routes --optimizer cmaes "
+            "to the evosax ask-eval-tell loop."
+        )
+    if optimizer == "open_es":
+        raise ValueError(
+            "Open-ES is implemented via evosax; main() routes --optimizer open_es "
+            "to the evosax ask-eval-tell loop."
+        )
+    if optimizer in ("snes", "xnes"):
+        raise ValueError(
+            f"{optimizer} is implemented via evosax; main() routes "
+            f"--optimizer {optimizer} to the evosax ask-eval-tell loop."
+        )
 
     raise ValueError(
-        f"Unknown optimizer {optimizer!r}. Choose from: de, pso, es, cmaes."
+        f"Unknown optimizer {optimizer!r}. "
+        "Choose from: de, pso, es, cmaes, open_es, snes, xnes."
     )
 
 
@@ -140,12 +154,3 @@ def _build_es(args, sampling: Sampling):
     )
 
 
-def _build_cmaes(args, sampling: Sampling):
-    from pymoo.algorithms.soo.nonconvex.cmaes import CMAES
-
-    return CMAES(
-        sigma=args.cmaes_sigma,
-        # CMA-ES manages its own population; pop_size is used as
-        # the lambda (offspring count) when explicitly provided.
-        restarts=0,
-    )

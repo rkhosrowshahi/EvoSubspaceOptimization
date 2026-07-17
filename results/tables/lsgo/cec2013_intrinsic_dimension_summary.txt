@@ -1,0 +1,19 @@
+CEC2013 intrinsic dimension via random projection (fitness variance capture)
+
+Function Type       Groups   ID@thr  Elbow d    Cap@D
+--------------------------------------------------------
+F1       sep             -      807       69    1.000
+F2       sep             -      814       97    1.000
+F3       sep             -        8        2    1.000
+F4       partial         7      807       77    1.000
+F5       partial         7      859      152    1.000
+F6       partial         7       13       12    1.000
+F7       partial         7      731      607    1.000
+F8       full           20      783      129    1.000
+F9       full           20      941      324    1.000
+F10      full           20       17        7    1.000
+F11      full           20      931      225    1.000
+F12      single          -      800      105    1.000
+F13      conform        20      910      739    1.000
+F14      conflict       20      597      502    1.000
+F15      single          -      941      294    1.000

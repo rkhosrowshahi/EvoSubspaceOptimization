@@ -106,3 +106,49 @@ class LoggingCallback(Callback):
             wandb.log(metrics, step=metrics["nfe"])
         except ImportError:
             pass
+
+
+class EvosaxLoggingCallback:
+    """Same metrics as ``LoggingCallback`` for evosax ask-eval-tell loops."""
+
+    def __init__(
+        self,
+        eval_fn: Callable[[np.ndarray], float],
+        subspace,
+        use_wandb: bool = False,
+        log_every: int = 1,
+    ) -> None:
+        self._eval_fn = eval_fn
+        self._subspace = subspace
+        self._use_wandb = use_wandb
+        self._log_every = log_every
+
+    def notify(self, optim) -> None:
+        gen: int = optim.n_gen
+        if gen % self._log_every != 0:
+            return
+        if optim.pop is None:
+            return
+
+        F = optim.pop.F.flatten()
+        X = optim.pop.X
+        nfe = optim.evaluator.n_eval
+        metrics = {
+            "generation": gen,
+            "nfe": nfe,
+            "best_fitness": float(F.min()),
+            "mean_fitness": float(F.mean()),
+            "center_fitness": self._compute_center_fitness(X),
+        }
+        if gen % 1000 == 0:
+            LoggingCallback._log_console(metrics)
+        if self._use_wandb:
+            LoggingCallback._log_wandb(metrics)
+
+    def _compute_center_fitness(self, X: np.ndarray) -> float:
+        centroid_z = X.mean(axis=0)
+        centroid_x = self._subspace.expand(centroid_z)
+        try:
+            return float(self._eval_fn(centroid_x))
+        except Exception:
+            return float("nan")

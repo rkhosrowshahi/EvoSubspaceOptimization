@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import re
 import time
+from pathlib import Path
 
 import numpy as np
 from pymoo.optimize import minimize
@@ -15,7 +16,17 @@ from pymoo.termination import get_termination
 
 from evo_subspace.optimizers import build_algorithm
 from evo_subspace.problems import LSGOProblem
-from evo_subspace.runtime import LoggingCallback, SubspaceProblem
+from evo_subspace.runtime import (
+    EvosaxLoggingCallback,
+    LoggingCallback,
+    SubspaceProblem,
+    run_evosax_optimization,
+    setup_evosax_optimizer,
+)
+from evo_subspace.analysis.intrinsic_dim import (
+    default_intrinsic_dim_csv,
+    resolve_intrinsic_subspace_dim,
+)
 from evo_subspace.subspaces import (
     build_subspace,
     lora_method_is_block,
@@ -88,6 +99,14 @@ def _wandb_bool(value: object) -> bool:
 # Argument parser
 # ---------------------------------------------------------------------------
 
+def parse_subspace_dim(value: str) -> int | str:
+    """Parse ``--subspace_dim``; accept ``intrinsic`` for per-function d from CSV."""
+    token = str(value).strip().lower()
+    if token == "intrinsic":
+        return "intrinsic"
+    return int(value)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Evolutionary Subspace Optimization on CEC-2013 LSGO benchmarks.",
@@ -137,11 +156,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--subspace_dim",
-        type=int,
+        type=parse_subspace_dim,
         default=None,
         help=(
-            "Subspace dimensionality d for random_projection and random_blocking."
+            "Subspace dimensionality d for random_projection and random_blocking, "
+            "or ``intrinsic`` to load d from results/tables/lsgo/cec2013_intrinsic_dimension.csv."
         ),
+    )
+    parser.add_argument(
+        "--intrinsic_dim_csv",
+        type=Path,
+        default=None,
+        help="CSV for --subspace_dim intrinsic (default: results/tables/lsgo/cec2013_intrinsic_dimension.csv).",
     )
     parser.add_argument(
         "--lora_rank",
@@ -187,8 +213,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--optimizer",
         type=str,
         default="de",
-        choices=["de", "pso", "es", "cmaes"],
-        help="Evolutionary algorithm.",
+        choices=["de", "pso", "es", "cmaes", "open_es", "snes", "xnes"],
+        help=(
+            "Evolutionary algorithm. CMA-ES, Open-ES, SNES, and xNES use "
+            "evosax ask-eval-tell."
+        ),
     )
     parser.add_argument("--pop_size", type=int, default=100, help="Population size.")
     parser.add_argument(
@@ -290,7 +319,32 @@ def build_parser() -> argparse.ArgumentParser:
         "--es_sigma",
         type=float,
         default=0.3,
-        help="ES initial step-size sigma (used to seed Gaussian sampling spread).",
+        help=(
+            "Noise std for Open-ES (optax schedule) / pymoo ES init spread."
+        ),
+    )
+    es.add_argument(
+        "--es_lr",
+        type=float,
+        default=1e-3,
+        help="Learning rate for Open-ES / SNES / xNES mean update (optax).",
+    )
+    es.add_argument(
+        "--es_opt",
+        type=str,
+        default="adam",
+        choices=["adam", "sgd"],
+        help="Optax optimizer for Open-ES / SNES / xNES mean update.",
+    )
+    es.add_argument(
+        "--es_lr_schedule",
+        type=str,
+        default="constant",
+        choices=["constant", "cosine"],
+        help=(
+            "LR schedule for the mean-update optimizer. "
+            "'cosine' decays from --es_lr to 0 over max_nfe/pop_size steps."
+        ),
     )
 
     # ---- CMA-ES parameters ----
@@ -299,7 +353,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--cmaes_sigma",
         type=float,
         default=0.5,
-        help="CMA-ES initial step-size sigma.",
+        help="CMA-ES initial step-size sigma (evosax CMA_ES std_init).",
     )
 
     # ---- Termination ----
@@ -466,6 +520,14 @@ def main(argv: list[str] | None = None) -> None:
             "--subspace_dim is required for random_projection and random_blocking"
         )
 
+    if args.subspace_dim == "intrinsic":
+        csv_path = args.intrinsic_dim_csv or default_intrinsic_dim_csv()
+        args.subspace_dim = resolve_intrinsic_subspace_dim(args.problem, csv_path)
+        print(
+            f"  Intrinsic d    : {args.subspace_dim} "
+            f"(from {csv_path} for {args.problem})"
+        )
+
     # Seed global RNG for reproducibility
     np.random.seed(args.seed)
 
@@ -537,41 +599,61 @@ def main(argv: list[str] | None = None) -> None:
         use_wandb=args.wandb,
         log_every=args.log_every,
     )
-
-    # -- Build algorithm --
-    algorithm = build_algorithm(args)
-
-    # -- Termination --
-    termination = get_termination("n_eval", args.max_nfe)
+    evosax_callback = EvosaxLoggingCallback(
+        eval_fn=lsgo.evaluate,
+        subspace=subspace,
+        use_wandb=args.wandb,
+        log_every=args.log_every,
+    )
 
     # -- Run optimization --
     t0 = time.perf_counter()
-    result = minimize(
-        problem,
-        algorithm,
-        termination,
-        seed=args.seed,
-        callback=callback,
-        verbose=False,
-        save_history=False,
-    )
+    if args.optimizer in ("cmaes", "open_es", "snes", "xnes"):
+        algorithm = setup_evosax_optimizer(
+            args,
+            problem,
+            search_dim=subspace.search_dim,
+            max_nfe=args.max_nfe,
+            seed=args.seed,
+        )
+        best_fitness, total_nfe = run_evosax_optimization(
+            algorithm,
+            problem,
+            max_nfe=args.max_nfe,
+            on_generation=evosax_callback.notify,
+        )
+    else:
+        algorithm = build_algorithm(args)
+        termination = get_termination("n_eval", args.max_nfe)
+        result = minimize(
+            problem,
+            algorithm,
+            termination,
+            seed=args.seed,
+            callback=callback,
+            verbose=False,
+            save_history=False,
+        )
+        best_fitness = float(result.F.flatten()[0])
+        total_nfe = int(result.algorithm.evaluator.n_eval)
+        algorithm = result.algorithm
     elapsed = time.perf_counter() - t0
 
     # -- Report result --
     print("=" * 70)
     print(f"Optimization finished in {elapsed:.2f}s")
-    print(f"  Best fitness   : {float(result.F.flatten()[0]):.6e}")
-    print(f"  Total NFE      : {result.algorithm.evaluator.n_eval}")
+    print(f"  Best fitness   : {best_fitness:.6e}")
+    print(f"  Total NFE      : {total_nfe}")
     if lsgo.optimum is not None:
-        gap = float(result.F.flatten()[0]) - lsgo.optimum
+        gap = best_fitness - lsgo.optimum
         print(f"  Gap to optimum : {gap:.6e}")
     print("=" * 70)
 
     if args.wandb:
         import wandb  # type: ignore
 
-        wandb.summary["best_fitness"] = float(result.F.flatten()[0])
-        wandb.summary["total_nfe"] = result.algorithm.evaluator.n_eval
+        wandb.summary["best_fitness"] = best_fitness
+        wandb.summary["total_nfe"] = total_nfe
         wandb.summary["elapsed_seconds"] = elapsed
         wandb.finish()
 

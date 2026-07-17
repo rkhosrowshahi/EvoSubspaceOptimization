@@ -8,4 +8,7 @@ jax>=0.4.0
 optax>=0.2.0
 
 # Optional: GPU/CPU torch matmul for --subspace_device (random_projection, lora)
-# pip install torch
+# CUDA 12.8 (Windows/Linux):
+#   pip install torch>=2.11.0 torchvision --index-url https://download.pytorch.org/whl/cu128
+# CPU only:
+#   pip install torch>=2.11.0

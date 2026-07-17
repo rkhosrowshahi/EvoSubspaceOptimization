@@ -11,7 +11,7 @@ import numpy as np
 import optax
 from evosax.algorithms import algorithms as EVOSAX_REGISTRY
 
-from utils import SubspaceProblem
+from evo_subspace.runtime.problem import SubspaceProblem
 
 
 POPULATION_BASED = {
@@ -306,10 +306,25 @@ def _evaluate_batch(problem: SubspaceProblem, X: np.ndarray) -> np.ndarray:
     return np.asarray(out["F"], dtype=float).reshape(-1, 1)
 
 
+def _evosax_optimizer_name(args) -> str:
+    """Resolve evosax algorithm id from CLI args."""
+    sub_optimizer = getattr(args, "sub_optimizer", None)
+    if sub_optimizer is not None:
+        return sub_optimizer
+    optimizer = getattr(args, "optimizer", "cmaes")
+    if optimizer == "cmaes":
+        return "cmaes"
+    return optimizer
+
+
 def build_evosax_optimizer(args, *, search_dim: int, gen_cap: int) -> EvosaxSubspaceOptimizer:
     """Construct an evosax-backed subspace optimizer from CLI args."""
-    pop_size = args.sub_pop_size if args.sub_pop_size is not None else args.pop_size
-    cls, algorithm_name = _resolve_algorithm_class(args.sub_optimizer)
+    pop_size = (
+        args.sub_pop_size
+        if getattr(args, "sub_pop_size", None) is not None
+        else args.pop_size
+    )
+    cls, algorithm_name = _resolve_algorithm_class(_evosax_optimizer_name(args))
 
     if algorithm_name in EVEN_POPULATION_REQUIRED and pop_size % 2 != 0:
         raise ValueError(
@@ -317,7 +332,10 @@ def build_evosax_optimizer(args, *, search_dim: int, gen_cap: int) -> EvosaxSubs
         )
 
     solution = jnp.zeros(search_dim, dtype=jnp.float32)
-    es = _instantiate_algorithm(cls, algorithm_name, pop_size, solution, args)
+    lr_steps = max(1, int(getattr(args, "max_nfe", gen_cap)) // int(pop_size))
+    es = _instantiate_algorithm(
+        cls, algorithm_name, pop_size, solution, args, lr_steps=lr_steps
+    )
     params = _build_params(es, algorithm_name, args)
 
     return EvosaxSubspaceOptimizer(
@@ -325,23 +343,61 @@ def build_evosax_optimizer(args, *, search_dim: int, gen_cap: int) -> EvosaxSubs
         algorithm_name=algorithm_name,
         params=params,
         pop_size=pop_size,
-        seed=args.seed + 1,
+        seed=getattr(args, "seed", 0) + 1,
         gen_cap=gen_cap,
     )
 
 
-def _instantiate_algorithm(cls, algorithm_name: str, pop_size: int, solution, args):
+def _learning_rate(args, *, lr_steps: int):
+    """Scalar LR or optax schedule from CLI args."""
+    lr = float(getattr(args, "es_lr", 1e-3))
+    schedule = str(getattr(args, "es_lr_schedule", "constant")).strip().lower()
+    if schedule == "constant":
+        return lr
+    if schedule == "cosine":
+        return optax.cosine_decay_schedule(
+            init_value=lr,
+            decay_steps=max(1, int(lr_steps)),
+            alpha=0.0,
+        )
+    raise ValueError(
+        f"Unknown es_lr_schedule {schedule!r}. Choose from: constant, cosine."
+    )
+
+
+def _optax_optimizer(args, *, lr_steps: int) -> optax.GradientTransformation:
+    """Build the mean-update optimizer for Open-ES / SNES / xNES."""
+    lr = _learning_rate(args, lr_steps=lr_steps)
+    name = str(getattr(args, "es_opt", "adam")).strip().lower()
+    if name == "adam":
+        return optax.adam(learning_rate=lr)
+    if name == "sgd":
+        return optax.sgd(learning_rate=lr)
+    raise ValueError(f"Unknown es_opt {name!r}. Choose from: adam, sgd.")
+
+
+def _instantiate_algorithm(
+    cls, algorithm_name: str, pop_size: int, solution, args, *, lr_steps: int
+):
     if algorithm_name == "Open_ES":
         return cls(
             population_size=pop_size,
             solution=solution,
+            optimizer=_optax_optimizer(args, lr_steps=lr_steps),
             std_schedule=optax.constant_schedule(args.es_sigma),
         )
     if algorithm_name == "SV_Open_ES":
         return cls(
             population_size=pop_size,
             solution=solution,
+            optimizer=_optax_optimizer(args, lr_steps=lr_steps),
             std_schedule=optax.constant_schedule(args.es_sigma),
+        )
+    if algorithm_name in ("SNES", "xNES"):
+        return cls(
+            population_size=pop_size,
+            solution=solution,
+            optimizer=_optax_optimizer(args, lr_steps=lr_steps),
         )
     return cls(population_size=pop_size, solution=solution)
 
@@ -350,4 +406,6 @@ def _build_params(es, algorithm_name: str, args):
     params = es.default_params
     if algorithm_name in ("CMA_ES", "Sep_CMA_ES", "SV_CMA_ES"):
         return params.replace(std_init=args.cmaes_sigma)
+    if algorithm_name in ("SNES", "xNES"):
+        return params.replace(std_init=args.es_sigma)
     return params

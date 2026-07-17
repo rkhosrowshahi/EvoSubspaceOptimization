@@ -1,0 +1,2 @@
+function,func_id,intrinsic_dim,n_runs,rp_mean_best_fitness,rp_std_best_fitness,fullspace_mean_best_fitness,ratio_rp_over_fullspace,matched_seed_wins,matched_seed_total
+F3,cec2013_lsgo_f3,8,1,21.03440958561783,0.0,2.931587,7.175093076077165,0,1
